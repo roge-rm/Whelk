@@ -11,6 +11,7 @@ sealed class Screen {
     data class EditSnippet(val id: String?) : Screen()
     data class EditForward(val id: String?, val connectionId: String? = null) : Screen()
     data class EditGroup(val id: String?) : Screen()
+    data class Files(val connectionId: String, val sessionId: Int? = null) : Screen()
     object Settings : Screen()
     object Backup : Screen()
 }

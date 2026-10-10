@@ -21,6 +21,7 @@ import kotlin.test.assertTrue
 
 class SshTest {
     private lateinit var server: SshServer
+    private val root = kotlin.io.path.createTempDirectory("whelk-sftp").toFile()
     private val key = Keys.generate(KeyKind.ECDSA_256, "")
     private val keyBlob = Base64.getDecoder().decode(key.publicKey.split(" ")[1])
 
@@ -34,12 +35,43 @@ class SshTest {
         server.publickeyAuthenticator = PublickeyAuthenticator { user, k, _ -> user == "dan" && Keys.blob(k).contentEquals(keyBlob) }
         server.forwardingFilter = AcceptAllForwardingFilter.INSTANCE
         server.commandFactory = ProcessShellCommandFactory.INSTANCE
+        server.subsystemFactories = listOf(org.apache.sshd.sftp.server.SftpSubsystemFactory())
+        server.fileSystemFactory = org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory(root.toPath())
         server.start()
     }
 
     @AfterTest
     fun stop() {
         server.stop(true)
+        root.deleteRecursively()
+    }
+
+    @Test
+    fun sftpFiles() {
+        java.io.File(root, "a.txt").writeText("hello")
+        java.io.File(root, "sub").mkdir()
+        SshConnection(target("pw"), Prompter(), Store()).use { c ->
+            c.connect()
+            Sftp(c).use { f ->
+                val home = f.home()
+                val list = f.list(home)
+                assertEquals(listOf("sub", "a.txt"), list.map { it.name })
+                assertTrue(list[0].isDir)
+                val out = java.io.ByteArrayOutputStream()
+                f.download(Sftp.join(home, "a.txt"), out)
+                assertEquals("hello", out.toString())
+                f.upload("new file".byteInputStream(), Sftp.join(home, "sub/b.txt"))
+                assertEquals("new file", java.io.File(root, "sub/b.txt").readText())
+                f.rename(Sftp.join(home, "a.txt"), Sftp.join(home, "c.txt"))
+                f.mkdir(Sftp.join(home, "sub/deeper"))
+                f.delete(f.list(home).first { it.name == "sub" })
+                assertEquals(listOf("c.txt"), f.list(home).map { it.name })
+            }
+        }
+        assertEquals("rwxr-x---", Sftp.permissionString(0b111101000))
+        assertEquals("/home", Sftp.parent("/home/dan"))
+        assertEquals("/", Sftp.parent("/home"))
+        assertEquals(null, Sftp.parent("/"))
     }
 
     private class Store : HostKeyStore {

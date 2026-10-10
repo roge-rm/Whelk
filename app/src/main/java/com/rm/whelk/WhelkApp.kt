@@ -16,6 +16,16 @@ class WhelkApp : Application() {
         Security.removeProvider("BC")
         Security.addProvider(BouncyCastleProvider())
 
+        // Setting up sshj and BouncyCastle takes seconds the first time, so do it now rather
+        // than when the first connection is made.
+        Thread({
+            runCatching {
+                com.rm.whelk.core.SshConnection.config(false)
+                java.security.KeyPairGenerator.getInstance("X25519", "BC").generateKeyPair()
+                javax.crypto.Cipher.getInstance("AES/CTR/NoPadding")
+            }
+        }, "WarmUp").apply { priority = Thread.MIN_PRIORITY }.start()
+
         Settings.init(this)
         Store.init(this)
         Sync.init(this)

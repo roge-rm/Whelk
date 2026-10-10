@@ -148,6 +148,7 @@ fun App(nav: Nav) {
             is Screen.EditSnippet -> EditSnippetScreen(nav, s.id)
             is Screen.EditForward -> EditForwardScreen(nav, s.id, s.connectionId)
             is Screen.EditGroup -> EditGroupScreen(nav, s.id)
+            is Screen.Files -> com.rm.whelk.ui.FilesScreen(nav, s.connectionId, s.sessionId)
             Screen.Settings -> SettingsScreen(nav)
             Screen.Backup -> BackupScreen(nav)
         }

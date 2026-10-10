@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files downloaded over SFTP to open in another app. -->
+<paths>
+    <cache-path name="sftp" path="sftp/" />
+</paths>

@@ -186,8 +186,11 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                         menu = false
                         showLinks = findLinks(session.terminal)
                     })
-                    if (session.connection != null && session.connection.type != com.rm.whelk.core.ConnectionType.TELNET) {
+                    if (session.connection != null && session.connection.type == com.rm.whelk.core.ConnectionType.SSH) {
                         DropdownMenuItem(text = { Text("Port forwards") }, onClick = { menu = false; showForwards = true })
+                    }
+                    if (session.connection != null && (session.connection.type == com.rm.whelk.core.ConnectionType.SSH || session.connection.type == com.rm.whelk.core.ConnectionType.MOSH)) {
+                        DropdownMenuItem(text = { Text("Files") }, onClick = { menu = false; nav.go(Screen.Files(session.connection.id, session.id)) })
                     }
                     DropdownMenuItem(text = { Text("Bigger text") }, onClick = { setFont(fontSize + 1) })
                     DropdownMenuItem(text = { Text("Smaller text") }, onClick = { setFont(fontSize - 1) })

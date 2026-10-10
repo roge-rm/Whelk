@@ -26,4 +26,5 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
     testImplementation(libs.sshd.core)
+    testImplementation(libs.sshd.sftp)
 }

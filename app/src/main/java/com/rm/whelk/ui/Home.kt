@@ -329,7 +329,12 @@ private fun ConnectionRow(c: Connection?, vault: Vault, nav: Nav, onConnect: () 
                             menu = false
                             Store.update { it.put(c.copy(id = newId(), name = if (c.name.isEmpty()) "" else c.name + " copy", lastUsed = 0, updated = now())) }
                         })
-                        DropdownMenuItem(text = { Text("Add port forward") }, onClick = { menu = false; nav.go(Screen.EditForward(null, c.id)) })
+                        if (c.type == ConnectionType.SSH || c.type == ConnectionType.MOSH) {
+                            DropdownMenuItem(text = { Text("Browse files") }, onClick = { menu = false; nav.go(Screen.Files(c.id)) })
+                        }
+                        if (c.type == ConnectionType.SSH) {
+                            DropdownMenuItem(text = { Text("Add port forward") }, onClick = { menu = false; nav.go(Screen.EditForward(null, c.id)) })
+                        }
                         DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onDelete() })
                     }
                 }
