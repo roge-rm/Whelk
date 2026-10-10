@@ -1,0 +1,94 @@
+package com.rm.whelk.session
+
+import com.rm.whelk.core.HostKeyCheck
+import com.rm.whelk.core.SshConnection
+import com.rm.whelk.core.SshPrompter
+import com.rm.whelk.core.SshTarget
+import com.rm.whelk.data.Settings
+import com.rm.whelk.data.Store
+import com.termux.terminal.StreamSession
+import com.termux.terminal.TerminalSessionClient
+import net.schmizz.sshj.connection.channel.direct.Session as SshChannel
+
+/** A terminal on an SSH shell. Connects when the view first sizes it. */
+class SshTerminal(
+    private val session: Session,
+    transcriptRows: Int,
+    client: TerminalSessionClient,
+) : StreamSession(transcriptRows, client) {
+    @Volatile private var connection: SshConnection? = null
+    @Volatile private var shell: SshChannel.Shell? = null
+    @Volatile private var size = intArrayOf(80, 24)
+    @Volatile private var stopped = false
+
+    override fun connect(columns: Int, rows: Int): Streams {
+        size = intArrayOf(columns, rows)
+        val vault = Store.vault.value
+        val conn = session.connection ?: throw IllegalStateException("No connection")
+        val target = SshTarget.from(vault, conn) ?: throw IllegalStateException("The jump hosts go round in a loop")
+        if (target.host.isEmpty()) throw IllegalStateException("No host name")
+        val c = SshConnection(target, Prompter(), Store.hostKeys)
+        connection = c
+        if (stopped) throw IllegalStateException("Cancelled")
+        c.connect()
+        if (stopped) {
+            c.close()
+            throw IllegalStateException("Cancelled")
+        }
+        val (_, sh) = c.openShell(Settings.value.terminalType, size[0], size[1])
+        shell = sh
+        // The view may have changed size while connecting.
+        if (size[0] != columns || size[1] != rows) sh.changeWindowDimensions(size[0], size[1], 0, 0)
+        session.ssh = c
+        session.state.value = SessionState.OPEN
+        Sessions.main.post { Sessions.changed() }
+        feed("\u001b[2K\r")
+        for (id in session.autoForwards.toList()) vault.forward(id)?.let { session.startForward(it) }
+        vault.snippet(conn.startSnippetId)?.let { s -> session.type(if (s.enter) s.text + "\r" else s.text) }
+        return Streams(sh.inputStream, sh.outputStream)
+    }
+
+    override fun onResize(columns: Int, rows: Int, cellWidthPixels: Int, cellHeightPixels: Int) {
+        size = intArrayOf(columns, rows)
+        val sh = shell ?: return
+        Sessions.io.execute { runCatching { sh.changeWindowDimensions(columns, rows, 0, 0) } }
+    }
+
+    override fun onFinish() {
+        stopped = true
+        Prompts.cancel(session.id)
+        val c = connection
+        Sessions.io.execute { c?.close() }
+        if (c == null) finished("\r\n[Disconnected]")
+    }
+
+    override fun onClosed() {
+        connection?.close()
+    }
+
+    override fun closedMessage(error: Exception?): String {
+        if (stopped) return "\r\n[Disconnected]"
+        return super.closedMessage(error)
+    }
+
+    private inner class Prompter : SshPrompter {
+        override fun trustHostKey(check: HostKeyCheck): Boolean =
+            Prompts.ask(Ask.HostKey(session.id, check)) == "yes"
+
+        override fun username(target: SshTarget): String? =
+            Prompts.ask(Ask.Text(session.id, target.host, "Log in as", "Username", secret = false))
+
+        override fun password(target: SshTarget): String? =
+            Prompts.ask(Ask.Text(session.id, target.label, "", "Password", secret = true))
+
+        override fun passphrase(target: SshTarget): String? =
+            Prompts.ask(Ask.Text(session.id, target.label, "The private key is locked", "Passphrase", secret = true))
+
+        override fun challenge(target: SshTarget, instruction: String, prompt: String, echo: Boolean): String? =
+            Prompts.ask(Ask.Text(session.id, target.label, instruction, prompt.trim().trimEnd(':'), secret = !echo))
+
+        override fun progress(text: String) {
+            feed("\u001b[2K\r$text")
+        }
+    }
+}

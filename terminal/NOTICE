@@ -1,0 +1,7 @@
+This module is the terminal-emulator and terminal-view libraries from Termux
+(https://github.com/termux/termux-app, tag v0.118.3), which come from Terminal
+Emulator for Android by Jack Palevich. They are released under the Apache
+License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+
+Whelk changes TerminalSession so a session can run over a stream (SSH, Telnet)
+as well as a local pty, and changes the view where noted in the code.

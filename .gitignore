@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+local.properties
+.DS_Store
+build/
+/captures
+.externalNativeBuild
+.cxx
+
+# The IDE's own state, all of it.
+/.idea/
+
+# Kotlin compiler caches.
+/.kotlin/
+
+# Release signing lives in ../Keys, outside this tree.
+*.jks
+*.keystore
+
+# Python caches from running the tools.
+__pycache__/
+
+# Working design notes. Kept on disk, never committed.
+/docs/
+core.*

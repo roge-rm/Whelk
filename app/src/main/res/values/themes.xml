@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.Whelk" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+    </style>
+    <color name="background">#FF121417</color>
+    <color name="icon_background">#FF1B2A33</color>
+</resources>
