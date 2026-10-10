@@ -25,7 +25,7 @@ fun SettingsScreen(nav: Nav) {
     val p by Settings.flow.collectAsState()
     val context = LocalContext.current
     FormScreen(title = "Settings", onBack = { nav.back() }, onSave = null) {
-        OutlinedButton(onClick = { nav.go(Screen.Backup) }, modifier = Modifier.fillMaxWidth()) { Text("Backup and sync") }
+        OutlinedButton(onClick = { nav.go(Screen.Backup) }, modifier = Modifier.fillMaxWidth()) { Text("Backup, sync and import") }
 
         Section("Security")
         Choice("Lock", p.lockAfter, listOf(-1, 0, 1, 5, 15, 60), ::lockName) { v ->

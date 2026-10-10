@@ -29,6 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
+import com.rm.whelk.core.Imported
+import com.rm.whelk.core.Importer
+import com.rm.whelk.core.KnownHostsFile
 import com.rm.whelk.core.Sealed
 import com.rm.whelk.core.Vault
 import com.rm.whelk.core.merge
@@ -64,6 +67,44 @@ fun BackupScreen(nav: Nav) {
     var message by remember { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf<Pair<Uri, Vault>?>(null) }
     var removing by remember { mutableStateOf<SyncTarget?>(null) }
+    var imported by remember { mutableStateOf<Imported?>(null) }
+
+    fun showImport(result: Result<Imported>) {
+        result.onSuccess { if (it.isEmpty) message = "Nothing to import in that" else imported = it }
+            .onFailure { message = "Couldn't read it: ${it.message}" }
+    }
+
+    val importFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            showImport(withContext(Dispatchers.IO) {
+                runCatching {
+                    val name = DocumentFile.fromSingleUri(context, uri)?.name.orEmpty()
+                    val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+                    if (bytes.size > 4_000_000) throw IllegalArgumentException("too big")
+                    Importer.read(name, bytes)
+                }
+            })
+        }
+    }
+    val importFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            showImport(withContext(Dispatchers.IO) {
+                runCatching {
+                    val dir = DocumentFile.fromTreeUri(context, uri) ?: throw IllegalStateException("Can't open the folder")
+                    val files = dir.listFiles().filter { it.isFile && it.length() < 1_000_000 }.associateBy { it.name.orEmpty() }
+                    fun text(name: String) = files[name]?.let { f -> context.contentResolver.openInputStream(f.uri)?.use { it.readBytes() } }
+                    val keys: (String) -> String? = { n -> text(n)?.toString(Charsets.UTF_8)?.takeIf { it.contains("PRIVATE KEY") || it.startsWith("PuTTY-User-Key-File") } }
+                    var all = Imported()
+                    text("config")?.let { all += Importer.read("config", it, keys) }
+                    text("known_hosts")?.let { all += KnownHostsFile.parse(it.toString(Charsets.UTF_8)) }
+                    for (reg in files.keys.filter { it.endsWith(".reg", ignoreCase = true) }) text(reg)?.let { all += Importer.read(reg, it, keys) }
+                    all
+                }
+            })
+        }
+    }
 
     fun keep(uri: Uri) {
         context.contentResolver.takePersistableUriPermission(
@@ -90,7 +131,7 @@ fun BackupScreen(nav: Nav) {
         if (uri != null) joinFolder = uri
     }
 
-    FormScreen(title = "Backup and sync", onBack = { nav.back() }, onSave = null) {
+    FormScreen(title = "Backup, sync and import", onBack = { nav.back() }, onSave = null) {
         Section("Backup")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = {
@@ -98,6 +139,12 @@ fun BackupScreen(nav: Nav) {
                 exportTo.launch("whelk-backup-$day.whelk")
             }) { Text("Export backup") }
             OutlinedButton(onClick = { restoreFrom.launch(arrayOf("*/*")) }) { Text("Restore backup") }
+        }
+
+        Section("Import")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { importFile.launch(arrayOf("*/*")) }) { Text("Import a file") }
+            OutlinedButton(onClick = { importFolder.launch(null) }) { Text("Import an .ssh folder") }
         }
 
         Section("Sync")
@@ -235,6 +282,36 @@ fun BackupScreen(nav: Nav) {
         )
     }
 
+    imported?.let { r ->
+        AlertDialog(
+            onDismissRequest = { imported = null },
+            title = { Text("Import") },
+            text = {
+                Column {
+                    val parts = buildList {
+                        if (r.connections.isNotEmpty()) add(plural(r.connections.size, "connection"))
+                        if (r.identities.isNotEmpty()) add(plural(r.identities.size, "identity", "identities"))
+                        if (r.forwards.isNotEmpty()) add(plural(r.forwards.size, "port forward"))
+                        if (r.knownHosts.isNotEmpty()) add(plural(r.knownHosts.size, "host key"))
+                    }
+                    Text(parts.joinToString(", ") + ". Ones already here are left as they are.")
+                    if (r.skipped.isNotEmpty()) {
+                        Text("Not imported:", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelLarge)
+                        for (s in r.skipped.take(8)) Text(s, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    Store.update { r.addTo(it) }
+                    imported = null
+                    message = "Imported"
+                }) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { imported = null }) { Text("Cancel") } },
+        )
+    }
+
     removing?.let { t ->
         AlertDialog(
             onDismissRequest = { removing = null },
@@ -250,6 +327,8 @@ fun BackupScreen(nav: Nav) {
         message = null
     }
 }
+
+private fun plural(n: Int, one: String, many: String = one + "s") = "$n " + if (n == 1) one else many
 
 @Composable
 private fun TargetRow(t: SyncTarget, what: String, onRemove: () -> Unit) {
