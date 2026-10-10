@@ -69,6 +69,8 @@ import com.rm.whelk.data.Swipe
 import com.rm.whelk.data.VolumeKeys
 import com.rm.whelk.session.Session
 import com.rm.whelk.session.SessionState
+import com.rm.whelk.session.Alerts
+import com.rm.whelk.session.Logs
 import com.rm.whelk.session.Sessions
 import com.termux.terminal.KeyHandler
 import com.termux.terminal.TerminalSession
@@ -97,7 +99,9 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
     val vault by Store.vault.collectAsState()
     val session = sessions.firstOrNull { it.id == sessionId }
     if (session == null) {
-        LaunchedEffect(Unit) { nav.back() }
+        // A session that reconnected by itself has a new id; follow it.
+        val next = Sessions.current(sessionId)
+        LaunchedEffect(next) { if (next != null) nav.swap(Screen.Terminal(next.id)) else nav.back() }
         return
     }
     val state by session.state.collectAsState()
@@ -108,6 +112,21 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
     var showSnippets by remember { mutableStateOf(false) }
     var showForwards by remember { mutableStateOf(false) }
     var showLinks by remember { mutableStateOf<List<String>?>(null) }
+    var filling by remember { mutableStateOf<com.rm.whelk.core.Snippet?>(null) }
+    var choosingTogether by remember { mutableStateOf(false) }
+    val together by Sessions.typingTogether.collectAsState()
+    val notifyActivity by session.notifyActivity.collectAsState()
+    val notifyQuiet by session.notifyQuiet.collectAsState()
+    val reconnecting by session.reconnecting.collectAsState()
+    var logName by remember(session) { mutableStateOf(session.watch.logging) }
+    val record = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null) {
+            session.watch.startLog(context, uri, Logs.fileName(session))
+            logName = session.watch.logging
+        }
+    }
     var title by remember { mutableStateOf(session.title) }
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -156,9 +175,13 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
     }
 
     DisposableEffect(session) {
+        Alerts.shownSession = session.id
+        Alerts.clear(session)
+        session.watch.seen()
         Sessions.onScreenUpdate = { t -> if (t === view?.currentSession) view?.onScreenUpdated() }
         Sessions.onTitleChange = { t -> if (t === session.terminal) title = t.title?.takeIf { it.isNotBlank() } ?: session.title }
         onDispose {
+            if (Alerts.shownSession == session.id) Alerts.shownSession = null
             Sessions.onScreenUpdate = null
             Sessions.onTitleChange = null
         }
@@ -226,6 +249,24 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     }
                     DropdownMenuItem(text = { Text("Bigger text") }, onClick = { setFont(fontSize + 1) })
                     DropdownMenuItem(text = { Text("Smaller text") }, onClick = { setFont(fontSize - 1) })
+                    DropdownMenuItem(
+                        text = { Text("Tell me about new output") },
+                        trailingIcon = { androidx.compose.material3.Checkbox(checked = notifyActivity, onCheckedChange = null) },
+                        onClick = { session.notifyActivity.value = !notifyActivity },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Tell me when output stops") },
+                        trailingIcon = { androidx.compose.material3.Checkbox(checked = notifyQuiet, onCheckedChange = null) },
+                        onClick = { session.notifyQuiet.value = !notifyQuiet },
+                    )
+                    if (logName == null) {
+                        DropdownMenuItem(text = { Text("Record to a file") }, onClick = { menu = false; record.launch(Logs.fileName(session)) })
+                    } else {
+                        DropdownMenuItem(text = { Text("Stop recording") }, onClick = { menu = false; session.watch.stopLog(); logName = null })
+                    }
+                    if (sessions.size > 1) {
+                        DropdownMenuItem(text = { Text("Type in several sessions") }, onClick = { menu = false; choosingTogether = true })
+                    }
                     DropdownMenuItem(text = { Text("Reset terminal") }, onClick = { menu = false; session.terminal.reset() })
                     if (state == SessionState.CLOSED) {
                         DropdownMenuItem(text = { Text("Reconnect") }, onClick = {
@@ -293,13 +334,31 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
                 ) {
                     Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Disconnected", Modifier.padding(horizontal = 8.dp))
+                        Text(reconnecting ?: "Disconnected", Modifier.padding(horizontal = 8.dp))
                         Button(onClick = { nav.swap(Screen.Terminal(Sessions.reconnect(context, session).id)) }) { Text("Reconnect") }
                         Gap()
                         OutlinedButton(onClick = { Sessions.close(session) }) { Text("Close") }
                     }
                 }
             }
+        }
+
+        if (session.id in together && together.size > 1) {
+            Row(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Typing in ${together.size} sessions", Modifier.weight(1f), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                TextButton(onClick = { Sessions.typingTogether.value = emptySet() }) { Text("Stop") }
+            }
+        }
+        if (logName != null) {
+            Text(
+                "Recording to $logName",
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 12.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         if (searching) {
@@ -346,10 +405,53 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
             items = snippets.map { it.name.ifEmpty { it.text.take(30) } to it.text },
             onPick = { i ->
                 val s = snippets[i]
-                session.type(if (s.enter) s.text + "\r" else s.text)
                 showSnippets = false
+                if (com.rm.whelk.core.Placeholders.fields(s.text).isEmpty()) runSnippet(session, s, emptyMap()) else filling = s
             },
             action = "New snippet" to { showSnippets = false; nav.go(Screen.EditSnippet(null)) },
+        )
+    }
+
+    filling?.let { s ->
+        val fields = remember(s) { com.rm.whelk.core.Placeholders.fields(s.text) }
+        val values = remember(s) { androidx.compose.runtime.mutableStateMapOf<String, String>().apply { fields.forEach { put(it.name, it.default) } } }
+        AlertDialog(
+            onDismissRequest = { filling = null },
+            title = { Text(s.name.ifEmpty { "Snippet" }) },
+            text = {
+                Column {
+                    for (f in fields) Field(f.name, values[f.name].orEmpty(), { values[f.name] = it })
+                }
+            },
+            confirmButton = { TextButton(onClick = { runSnippet(session, s, values.toMap()); filling = null }) { Text("Type it") } },
+            dismissButton = { TextButton(onClick = { filling = null }) { Text("Cancel") } },
+        )
+    }
+
+    if (choosingTogether) {
+        val picked = remember { androidx.compose.runtime.mutableStateListOf<Int>().apply { addAll(if (together.isEmpty()) sessions.map { it.id } else together) } }
+        AlertDialog(
+            onDismissRequest = { choosingTogether = false },
+            title = { Text("Type in these sessions") },
+            text = {
+                Column {
+                    for (o in sessions) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().combinedClickableCompat(onClick = {
+                            if (o.id in picked) picked.remove(o.id) else picked.add(o.id)
+                        })) {
+                            androidx.compose.material3.Checkbox(checked = o.id in picked, onCheckedChange = null)
+                            Text(o.title, Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    Sessions.typingTogether.value = if (picked.size > 1) (picked.toSet() + session.id) else emptySet()
+                    choosingTogether = false
+                }) { Text("Start") }
+            },
+            dismissButton = { TextButton(onClick = { choosingTogether = false }) { Text("Cancel") } },
         )
     }
 
@@ -376,6 +478,14 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
             nav.go(Screen.EditForward(null, session.connection?.id))
         })
     }
+}
+
+/** Types a snippet with its placeholders filled in. */
+fun runSnippet(session: Session, s: com.rm.whelk.core.Snippet, values: Map<String, String>) {
+    val vault = Store.vault.value
+    val user = vault.identity(session.connection?.identityId)?.username.orEmpty()
+    val text = com.rm.whelk.core.Placeholders.fill(s.text, values, session.connection?.host.orEmpty(), user)
+    session.type(if (s.enter) text + "\r" else text)
 }
 
 private val LINK = Regex("""(https?|ftp)://[^\s<>"'`]+[^\s<>"'`.,;:!?)\]}]""")

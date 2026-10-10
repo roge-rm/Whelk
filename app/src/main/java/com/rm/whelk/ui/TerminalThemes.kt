@@ -73,7 +73,15 @@ object TerminalThemes {
         ),
     )
 
-    fun named(name: String?): TerminalTheme = all.firstOrNull { it.name == name } ?: all[0]
+    /** A built in scheme, or one the user imported, by name. */
+    fun named(name: String?): TerminalTheme {
+        all.firstOrNull { it.name == name }?.let { return it }
+        val custom = com.rm.whelk.data.Store.vault.value.liveColourSchemes().firstOrNull { it.name == name } ?: return all[0]
+        if (custom.ansi.size < 16) return all[0]
+        return TerminalTheme(custom.name, custom.background.toInt(), custom.foreground.toInt(), custom.cursor.toInt(), IntArray(16) { custom.ansi[it].toInt() })
+    }
+
+    fun names(vault: com.rm.whelk.core.Vault): List<String> = all.map { it.name } + vault.liveColourSchemes().map { it.name }.sorted()
 
     private var applied: TerminalTheme? = null
 
@@ -82,7 +90,7 @@ object TerminalThemes {
      * session's colours are reset from it.
      */
     fun apply(theme: TerminalTheme) {
-        if (applied === theme) return
+        if (applied?.name == theme.name && applied?.background == theme.background) return
         applied = theme
         val props = Properties()
         for (i in 0 until 16) props["color$i"] = hex(theme.ansi[i])

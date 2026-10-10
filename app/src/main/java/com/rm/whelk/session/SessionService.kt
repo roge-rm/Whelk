@@ -27,13 +27,40 @@ class SessionService : Service() {
         }
         val sessions = Sessions.list.value
         if (sessions.isEmpty()) {
+            keepAwake(false)
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
         val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(sessions), type)
+        keepAwake(com.rm.whelk.data.Settings.value.keepAwake)
         return START_NOT_STICKY
+    }
+
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+
+    /** Holds the CPU and Wi-Fi awake while sessions are open, if that's turned on. */
+    private fun keepAwake(on: Boolean) {
+        if (on && wakeLock == null) {
+            wakeLock = getSystemService(android.os.PowerManager::class.java)
+                .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Whelk:sessions").apply { acquire() }
+            val mode = if (Build.VERSION.SDK_INT >= 29) android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            else @Suppress("DEPRECATION") android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            wifiLock = applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
+                ?.createWifiLock(mode, "Whelk:sessions")?.apply { acquire() }
+        } else if (!on) {
+            wakeLock?.let { if (it.isHeld) it.release() }
+            wifiLock?.let { if (it.isHeld) it.release() }
+            wakeLock = null
+            wifiLock = null
+        }
+    }
+
+    override fun onDestroy() {
+        keepAwake(false)
+        super.onDestroy()
     }
 
     private fun notification(sessions: List<Session>): Notification {

@@ -52,6 +52,29 @@ fun SettingsScreen(nav: Nav) {
 
         SwitchRow("Ask before a server uses my keys", p.askBeforeAgent) { v -> Settings.update { it.copy(askBeforeAgent = v) } }
 
+        Section("Sessions")
+        SwitchRow("Reconnect by itself after a drop", p.autoReconnect) { v -> Settings.update { it.copy(autoReconnect = v) } }
+        SwitchRow("Keep the phone awake while sessions are open", p.keepAwake) { v -> Settings.update { it.copy(keepAwake = v) } }
+        SwitchRow("Notify on bell when away", p.notifyBell) { v -> Settings.update { it.copy(notifyBell = v) } }
+        val logFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                Settings.update { it.copy(logFolder = uri.toString()) }
+            }
+        }
+        if (p.logFolder == null) {
+            TextButton(onClick = { logFolder.launch(null) }) { Text("Record every session to a folder") }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Recording every session to " + (androidx.documentfile.provider.DocumentFile.fromTreeUri(context, android.net.Uri.parse(p.logFolder))?.name ?: "a folder"),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextButton(onClick = { Settings.update { it.copy(logFolder = null) } }) { Text("Stop") }
+            }
+        }
+
         Section("Terminal")
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Text size", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
@@ -72,9 +95,34 @@ fun SettingsScreen(nav: Nav) {
         TextButton(onClick = { fontFile.launch(arrayOf("font/*", "application/x-font-ttf", "application/octet-stream", "*/*")) }) {
             Text("Use a font file")
         }
-        Choice("Colours", p.theme, TerminalThemes.all.map { it.name }, { it }) { name ->
+        val vault by com.rm.whelk.data.Store.vault.collectAsState()
+        Choice("Colours", p.theme, TerminalThemes.names(vault), { it }) { name ->
             Settings.update { it.copy(theme = name) }
             recolour(name)
+        }
+        val schemeFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val name = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri)?.name ?: "Imported"
+            val text = runCatching { context.contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+            val scheme = text?.takeIf { it.length < 1_000_000 }?.let { runCatching { com.rm.whelk.core.ColourSchemes.read(name, it) }.getOrNull() }
+            if (scheme == null) {
+                Toast.makeText(context, "Couldn't read colours from that", Toast.LENGTH_LONG).show()
+            } else {
+                com.rm.whelk.data.Store.update { it.put(scheme) }
+                Settings.update { it.copy(theme = scheme.name) }
+                recolour(scheme.name)
+            }
+        }
+        Row {
+            TextButton(onClick = { schemeFile.launch(arrayOf("*/*")) }) { Text("Import colours") }
+            val custom = vault.liveColourSchemes().firstOrNull { it.name == p.theme }
+            if (custom != null) {
+                TextButton(onClick = {
+                    com.rm.whelk.data.Store.update { it.put(custom.copy(deleted = true, updated = com.rm.whelk.core.now())) }
+                    Settings.update { it.copy(theme = "Whelk") }
+                    recolour("Whelk")
+                }) { Text("Remove ${custom.name}") }
+            }
         }
         Choice("Volume keys", p.volumeKeys, VolumeKeys.values().toList(), { it.label }) { v -> Settings.update { it.copy(volumeKeys = v) } }
         Choice("Swipe sideways to switch", p.swipe, Swipe.values().toList(), { it.label }) { v -> Settings.update { it.copy(swipe = v) } }

@@ -178,6 +178,72 @@ class SshTest {
         }
     }
 
+    /** A one-connection HTTP CONNECT or SOCKS5 proxy, for the proxy tests. Counts what it carried. */
+    private fun proxy(socks: Boolean, needLogin: Boolean = false): Pair<ServerSocket, () -> Int> {
+        val server = ServerSocket(0, 5, java.net.InetAddress.getByName("127.0.0.1"))
+        var count = 0
+        thread(isDaemon = true) {
+            while (true) {
+                val client = try { server.accept() } catch (e: Exception) { break }
+                thread(isDaemon = true) {
+                    client.use { c ->
+                        val input = DataInputStream(c.getInputStream())
+                        val out = c.getOutputStream()
+                        val (host, port) = if (socks) {
+                            input.readUnsignedByte()
+                            val methods = ByteArray(input.readUnsignedByte()).also { input.readFully(it) }
+                            if (needLogin) {
+                                check(2.toByte() in methods)
+                                out.write(byteArrayOf(5, 2))
+                                input.readUnsignedByte()
+                                val u = String(ByteArray(input.readUnsignedByte()).also { input.readFully(it) })
+                                val p = String(ByteArray(input.readUnsignedByte()).also { input.readFully(it) })
+                                out.write(byteArrayOf(1, if (u == "me" && p == "pw") 0 else 1))
+                            } else out.write(byteArrayOf(5, 0))
+                            input.readFully(ByteArray(3))
+                            check(input.readUnsignedByte() == 3)
+                            val h = String(ByteArray(input.readUnsignedByte()).also { input.readFully(it) })
+                            val p = input.readUnsignedShort()
+                            out.write(byteArrayOf(5, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+                            h to p
+                        } else {
+                            val head = StringBuilder()
+                            while (!head.endsWith("\r\n\r\n")) head.append(input.read().toChar())
+                            val target = head.lines()[0].split(" ")[1]
+                            out.write("HTTP/1.1 200 Connection established\r\n\r\n".toByteArray())
+                            target.substringBeforeLast(':') to target.substringAfterLast(':').toInt()
+                        }
+                        count++
+                        Socket(host, port).use { up ->
+                            val t = thread(isDaemon = true) { runCatching { up.getInputStream().copyTo(out) } }
+                            runCatching { input.copyTo(up.getOutputStream()) }
+                            t.join(1000)
+                        }
+                    }
+                }
+            }
+        }
+        return server to { count }
+    }
+
+    @Test
+    fun throughProxies() {
+        for ((socks, login) in listOf(false to false, true to false, true to true)) {
+            val (p, used) = proxy(socks, login)
+            p.use {
+                val settings = ProxySettings(
+                    if (socks) ProxyType.SOCKS5 else ProxyType.HTTP, "127.0.0.1", p.localPort,
+                    if (login) "me" else "", if (login) "pw" else "",
+                )
+                SshConnection(target("pw").copy(proxy = settings), Prompter(), Store()).use { c ->
+                    c.connect()
+                    assertEquals("proxied\n", c.exec("echo proxied"))
+                }
+                assertEquals(1, used())
+            }
+        }
+    }
+
     @Test
     fun askedUsername() {
         SshConnection(target("pw", user = ""), Prompter(), Store()).use { c ->

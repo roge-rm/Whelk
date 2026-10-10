@@ -57,11 +57,13 @@ class MainActivity : FragmentActivity() {
 
     override fun onPause() {
         super.onPause()
+        com.rm.whelk.session.Alerts.appVisible = false
         com.rm.whelk.session.SecurityKey.stop()
     }
 
     override fun onResume() {
         super.onResume()
+        com.rm.whelk.session.Alerts.appVisible = true
         if (com.rm.whelk.session.SecurityKey.pending.value != null) com.rm.whelk.session.SecurityKey.listen(this)
         // Keeps the screen out of the recent apps view and screenshots while the lock is on.
         if (Settings.value.lockAfter >= 0) {
@@ -77,8 +79,14 @@ class MainActivity : FragmentActivity() {
         handle(intent)
     }
 
-    /** A connection widget's tap: open a session for it. */
+    /** A connection widget's tap opens a session for it; a session notification's tap shows it. */
     private fun handle(intent: android.content.Intent?) {
+        if (intent?.action == ACTION_SHOW_SESSION) {
+            val id = intent.getIntExtra(EXTRA_SESSION, -1)
+            intent.action = null
+            Sessions.current(id)?.let { nav.reset(Screen.Terminal(it.id)) }
+            return
+        }
         if (intent?.action != ACTION_CONNECT) return
         val c = Store.vault.value.connection(intent.getStringExtra(EXTRA_CONNECTION)) ?: return
         intent.action = null
@@ -88,6 +96,8 @@ class MainActivity : FragmentActivity() {
     companion object {
         const val ACTION_CONNECT = "com.rm.whelk.CONNECT"
         const val EXTRA_CONNECTION = "connection"
+        const val ACTION_SHOW_SESSION = "com.rm.whelk.SHOW_SESSION"
+        const val EXTRA_SESSION = "session"
     }
 
     /**

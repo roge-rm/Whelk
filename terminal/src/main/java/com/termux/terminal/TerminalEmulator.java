@@ -2101,6 +2101,15 @@ public final class TerminalEmulator {
                     }
                 }
                 break;
+            case 9: // Whelk: iTerm2's "9;message" desktop notification. ConEmu uses 9;n;... for other things.
+                if (!textParameter.matches("^\\d+;.*")) mSession.onNotify("", textParameter);
+                break;
+            case 777: // Whelk: rxvt's "777;notify;title;body" desktop notification.
+                if (textParameter.startsWith("notify;")) {
+                    String[] parts = textParameter.substring(7).split(";", 2);
+                    mSession.onNotify(parts[0], parts.length > 1 ? parts[1] : "");
+                }
+                break;
             case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
                 int startIndex = textParameter.indexOf(";") + 1;
                 try {

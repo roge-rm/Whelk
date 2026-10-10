@@ -17,6 +17,7 @@ data class Vault(
     val snippets: List<Snippet> = emptyList(),
     val forwards: List<PortForward> = emptyList(),
     val knownHosts: List<KnownHost> = emptyList(),
+    val colourSchemes: List<ColourScheme> = emptyList(),
 ) {
     fun connection(id: String?) = connections.firstOrNull { it.id == id && !it.deleted }
     fun identity(id: String?) = identities.firstOrNull { it.id == id && !it.deleted }
@@ -38,6 +39,8 @@ data class Vault(
     fun put(s: Snippet) = copy(snippets = snippets.upsert(s))
     fun put(f: PortForward) = copy(forwards = forwards.upsert(f))
     fun put(k: KnownHost) = copy(knownHosts = knownHosts.upsert(k))
+    fun put(c: ColourScheme) = copy(colourSchemes = colourSchemes.upsert(c))
+    fun liveColourSchemes() = colourSchemes.filter { !it.deleted }
 
     fun toJson(): String = json.encodeToString(serializer(), this)
 
@@ -147,6 +150,9 @@ data class Connection(
     val env: Map<String, String> = emptyMap(),
     /** A tmux session to attach to, or make, in place of a plain shell. */
     val tmux: String? = null,
+    val proxy: ProxySettings = ProxySettings(),
+    /** Words that bring up a notification when they show up in the output. */
+    val watch: List<String> = emptyList(),
     /** Which device: "vendor:product" in hex for USB (empty for the first one), the address for Bluetooth. */
     val device: String = "",
     /** The device's name, to show in lists. */

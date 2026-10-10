@@ -86,6 +86,8 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var backspace by remember { mutableStateOf(original.backspace) }
     var envText by remember { mutableStateOf(original.env.entries.joinToString("\n") { "${it.key}=${it.value}" }) }
     var tmux by remember { mutableStateOf(original.tmux.orEmpty()) }
+    var proxy by remember { mutableStateOf(original.proxy) }
+    var watchText by remember { mutableStateOf(original.watch.joinToString(", ")) }
     var device by remember { mutableStateOf(original.device) }
     var deviceName by remember { mutableStateOf(original.deviceName) }
     var deviceError by remember { mutableStateOf<String?>(null) }
@@ -133,6 +135,8 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
                 if (i <= 0) null else l.substring(0, i).trim() to l.substring(i + 1)
             }.filter { it.first.isNotEmpty() }.toMap(),
             tmux = tmux.trim().ifEmpty { null }.takeIf { type == ConnectionType.SSH || type == ConnectionType.MOSH },
+            proxy = if (type == ConnectionType.SSH || type == ConnectionType.MOSH) proxy else com.rm.whelk.core.ProxySettings(),
+            watch = watchText.split(',').map { it.trim() }.filter { it.isNotEmpty() },
             device = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) device else "",
             deviceName = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) deviceName else "",
             updated = now(),
@@ -206,7 +210,8 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             Choice("Encoding", charset, Codec.CHARSETS, { it }) { charset = it }
             Choice("Backspace sends", backspace, Backspace.values().toList(), { it.label }) { backspace = it }
         }
-        Choice("Colours", theme, listOf<String?>(null) + TerminalThemes.all.map { it.name }, { it ?: "Same as settings" }) { theme = it }
+        Choice("Colours", theme, listOf<String?>(null) + TerminalThemes.names(vault), { it ?: "Same as settings" }) { theme = it }
+        Field("Notify me when these show up, comma between", watchText, { watchText = it })
 
         if (type == ConnectionType.SSH || type == ConnectionType.MOSH) {
             Section("Advanced")
@@ -215,6 +220,13 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             Field("Keepalive seconds (0 for off)", keepAlive, { keepAlive = it.filter(Char::isDigit) }, number = true)
             SwitchRow("Compression", compression) { compression = it }
             if (type == ConnectionType.SSH) SwitchRow("Forward agent", forwardAgent) { forwardAgent = it }
+            Choice("Proxy", proxy.type, com.rm.whelk.core.ProxyType.values().toList(), { it.label }) { proxy = proxy.copy(type = it) }
+            if (proxy.type != com.rm.whelk.core.ProxyType.NONE) {
+                Field("Proxy host", proxy.host, { proxy = proxy.copy(host = it.trim()) })
+                Field("Proxy port", proxy.port.toString(), { t -> proxy = proxy.copy(port = t.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 65535) ?: proxy.port) }, number = true)
+                Field("Proxy username", proxy.username, { proxy = proxy.copy(username = it) })
+                if (proxy.type != com.rm.whelk.core.ProxyType.SOCKS4) Field("Proxy password", proxy.password, { proxy = proxy.copy(password = it) }, secret = true)
+            }
             if (type == ConnectionType.MOSH) Field("Mosh server command", moshServer, { moshServer = it }, monospace = true)
         }
     }

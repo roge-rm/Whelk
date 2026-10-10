@@ -43,6 +43,7 @@ data class SshTarget(
     val compression: Boolean = false,
     /** A jump host to connect through first. */
     val via: SshTarget? = null,
+    val proxy: ProxySettings = ProxySettings(),
 ) {
     val label: String get() = if (port == 22) "$username@$host" else "$username@$host:$port"
 
@@ -63,6 +64,7 @@ data class SshTarget(
                 keepAlive = connection.keepAlive,
                 compression = connection.compression,
                 via = via,
+                proxy = connection.proxy,
             )
         }
     }
@@ -139,6 +141,11 @@ class SshConnection(
         if (parent != null) {
             prompter.progress("Connecting to ${t.host} through ${t.via!!.host}…")
             c.connectVia(parent.newDirectConnection(t.host, t.port))
+        } else if (t.proxy.type != ProxyType.NONE) {
+            prompter.progress("Connecting to ${t.host}:${t.port} through ${t.proxy.host}…")
+            val socket = Proxies.connect(t.proxy, t.host, t.port)
+            synchronized(forwards) { forwards += socket }
+            c.connectVia(socket.getInputStream(), socket.getOutputStream())
         } else {
             prompter.progress("Connecting to ${t.host}:${t.port}…")
             c.connect(t.host, t.port)

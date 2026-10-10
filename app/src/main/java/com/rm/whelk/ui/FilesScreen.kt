@@ -125,6 +125,10 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
     var newFolder by remember { mutableStateOf(false) }
     var goTo by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf<RemoteEntry?>(null) }
+    var editing by remember { mutableStateOf<Editing?>(null) }
+    var editStatus by remember { mutableStateOf("") }
+
+    DisposableEffect(Unit) { onDispose { editing?.stop() } }
     val title = Store.vault.value.connection(connectionId)?.title(Store.vault.value) ?: "Files"
 
     DisposableEffect(Unit) {
@@ -193,6 +197,28 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
         }
     }
 
+    /** Downloads [e], opens it in an editor app, and uploads it again each time it's saved there. */
+    fun edit(e: RemoteEntry) {
+        editing?.stop()
+        run("Downloading…", refresh = false) { f ->
+            val dir = File(context.cacheDir, "sftp/edit/" + System.currentTimeMillis()).apply { mkdirs() }
+            val file = File(dir, e.name)
+            file.outputStream().use { out -> f.download(e.path, out) }
+            withContext(Dispatchers.Main) {
+                val ed = Editing(file, e) { local ->
+                    scope.launch {
+                        editStatus = "Uploading ${e.name}…"
+                        val ok = withContext(Dispatchers.IO) { runCatching { local.inputStream().use { remote.open().upload(it, e.path) } } }
+                        editStatus = if (ok.isSuccess) "Saved ${e.name} to the server" else "Couldn't upload: ${ok.exceptionOrNull()?.message}"
+                    }
+                }
+                editing = ed
+                editStatus = "Editing ${e.name}. Saving it uploads it."
+                editFile(context, file)
+            }
+        }
+    }
+
     fun open(e: RemoteEntry) {
         if (e.isDir) {
             go(e.path)
@@ -239,6 +265,16 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
                 Text(b, Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
             }
             error?.let { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
+            if (editing != null) {
+                androidx.compose.foundation.layout.Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    Text(editStatus, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { editing?.let { editFile(context, it.file) } }) { Text("Open again") }
+                    TextButton(onClick = { editing?.stop(); editing = null }) { Text("Done") }
+                }
+            }
             val shown = entries.filter { showHidden || !it.name.startsWith(".") }
             LazyColumn(Modifier.fillMaxSize()) {
                 val parent = path?.let { Sftp.parent(it) }
@@ -269,6 +305,7 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
                         DropdownMenu(expanded = selected == e, onDismissRequest = { selected = null }) {
                             if (!e.isDir) {
                                 DropdownMenuItem(text = { Text("Open") }, onClick = { selected = null; open(e) })
+                                DropdownMenuItem(text = { Text("Edit") }, onClick = { selected = null; edit(e) })
                                 DropdownMenuItem(text = { Text("Save to phone") }, onClick = { selected = null; saving = e; saveTo.launch(e.name) })
                             }
                             DropdownMenuItem(text = { Text("Copy path") }, onClick = {
@@ -354,5 +391,45 @@ private fun view(context: Context, file: File) {
         context.startActivity(Intent.createChooser(intent, file.name))
     } catch (e: ActivityNotFoundException) {
         Toast.makeText(context, "Nothing on the phone opens that", Toast.LENGTH_SHORT).show()
+    }
+}
+
+/**
+ * A downloaded file being edited in another app. Uploads after each save, once the file has
+ * settled for a moment.
+ */
+private class Editing(val file: File, val entry: RemoteEntry, private val upload: (File) -> Unit) {
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lastModified = file.lastModified()
+    private val settle = Runnable {
+        if (file.lastModified() != lastModified) {
+            lastModified = file.lastModified()
+            upload(file)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private val observer = object : android.os.FileObserver(file.path, CLOSE_WRITE or MODIFY or MOVED_TO) {
+        override fun onEvent(event: Int, path: String?) {
+            handler.removeCallbacks(settle)
+            handler.postDelayed(settle, 800)
+        }
+    }.also { it.startWatching() }
+
+    fun stop() {
+        observer.stopWatching()
+        handler.removeCallbacks(settle)
+    }
+}
+
+private fun editFile(context: Context, file: File) {
+    val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
+    val type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "text/plain"
+    val intent = Intent(Intent.ACTION_EDIT).setDataAndType(uri, type)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+    try {
+        context.startActivity(Intent.createChooser(intent, file.name))
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, "No app on the phone edits that", Toast.LENGTH_SHORT).show()
     }
 }

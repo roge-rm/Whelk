@@ -16,6 +16,7 @@ fun Vault.merge(other: Vault, at: Long = now()): Vault {
         snippets = mergeItems(snippets, other.snippets, cutoff),
         forwards = mergeItems(forwards, other.forwards, cutoff),
         knownHosts = mergeItems(knownHosts, other.knownHosts, cutoff),
+        colourSchemes = mergeItems(colourSchemes, other.colourSchemes, cutoff),
     )
 }
 

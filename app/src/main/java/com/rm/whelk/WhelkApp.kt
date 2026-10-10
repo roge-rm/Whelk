@@ -28,6 +28,8 @@ class WhelkApp : Application() {
 
         Settings.init(this)
         Store.init(this)
+        com.rm.whelk.session.Alerts.init(this)
+        com.rm.whelk.session.Sessions.init(this)
         Sync.init(this)
         com.rm.whelk.ui.Shortcuts.update(this, Store.vault.value)
         Store.addListener { v -> com.rm.whelk.ui.Shortcuts.update(this, v) }

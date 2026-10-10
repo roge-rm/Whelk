@@ -10,6 +10,9 @@ import java.io.OutputStream;
  */
 public abstract class StreamSession extends TerminalSession {
 
+    /** Set when the session ended on an error, like a dropped network, rather than the far end closing. */
+    public volatile boolean mEndedWithError;
+
     protected StreamSession(Integer transcriptRows, TerminalSessionClient client) {
         super(transcriptRows, client);
     }
@@ -51,6 +54,7 @@ public abstract class StreamSession extends TerminalSession {
                 try {
                     streams = connect(columns, rows);
                 } catch (Exception e) {
+                    mEndedWithError = true;
                     onClosed();
                     finished(closedMessage(e));
                     return;
@@ -83,6 +87,7 @@ public abstract class StreamSession extends TerminalSession {
                 } catch (Exception e) {
                     error = e;
                 }
+                mEndedWithError = error != null;
                 onClosed();
                 finished(closedMessage(error));
             }

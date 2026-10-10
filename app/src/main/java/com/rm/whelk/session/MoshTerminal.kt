@@ -52,7 +52,7 @@ class MoshStarter(private val context: Context, private val session: Session) : 
         terminal.progress("\u001b[2K\r")
         session.state.value = SessionState.OPEN
         Sessions.main.post { Sessions.changed() }
-        vault.snippet(conn.startSnippetId)?.let { s -> session.type(if (s.enter) s.text + "\r" else s.text) }
+        vault.snippet(conn.startSnippetId)?.let { s -> Sessions.io.execute { session.typeStartSnippet(s) } }
 
         val env = arrayOf(
             "MOSH_KEY=${connect.key}",

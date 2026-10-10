@@ -21,6 +21,10 @@ public interface TerminalSessionClient {
 
     void onColorsChanged(TerminalSession session);
 
+    /** A program asked for a desktop notification. Whelk addition. */
+    default void onNotify(TerminalSession session, String title, String body) {
+    }
+
     void onTerminalCursorStateChange(boolean state);
 
 

@@ -108,8 +108,36 @@ public abstract class TerminalSession extends TerminalOutput {
         return new int[]{mEmulator.mColumns, mEmulator.mRows};
     }
 
+    /** Sees output from the far end as it arrives, on the reader thread. */
+    public interface OutputListener {
+        void onOutput(byte[] data, int offset, int count);
+    }
+
+    /** Sees what the user types, as opposed to the emulator's own replies. */
+    public interface InputListener {
+        void onUserInput(byte[] data, int offset, int count);
+    }
+
+    public volatile OutputListener mOutputListener;
+    public volatile InputListener mInputListener;
+
+    /** Writes keys the user typed: the same as {@link #write}, and tells the input listener. */
+    public void writeFromUser(byte[] data, int offset, int count) {
+        write(data, offset, count);
+        InputListener l = mInputListener;
+        if (l != null) l.onUserInput(data, offset, count);
+    }
+
+    public final void writeFromUser(String text) {
+        if (text == null) return;
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        writeFromUser(bytes, 0, bytes.length);
+    }
+
     /** Pass output from the far end to the emulator. Safe from any thread. */
     protected final boolean feed(byte[] data, int offset, int count) {
+        OutputListener l = mOutputListener;
+        if (l != null) l.onOutput(data, offset, count);
         if (!mProcessToTerminalIOQueue.write(data, offset, count)) return false;
         mMainThreadHandler.sendEmptyMessage(MSG_NEW_INPUT);
         return true;
@@ -178,7 +206,7 @@ public abstract class TerminalSession extends TerminalOutput {
             /* 10xxxxxx continuation byte with following 6 bits */
             mUtf8InputBuffer[bufferPosition++] = (byte) (0b10000000 | (codePoint & 0b111111));
         }
-        write(mUtf8InputBuffer, 0, bufferPosition);
+        writeFromUser(mUtf8InputBuffer, 0, bufferPosition);
     }
 
     public TerminalEmulator getEmulator() {
@@ -228,6 +256,11 @@ public abstract class TerminalSession extends TerminalOutput {
     @Override
     public void onColorsChanged() {
         mClient.onColorsChanged(this);
+    }
+
+    @Override
+    public void onNotify(String title, String body) {
+        mClient.onNotify(this, title, body);
     }
 
     @SuppressLint("HandlerLeak")

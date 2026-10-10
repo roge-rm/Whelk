@@ -48,6 +48,19 @@ class Session(
     /** Ids of the forwards to start once connected. */
     internal val autoForwards: MutableSet<String> = java.util.Collections.synchronizedSet(mutableSetOf())
 
+    /** Notify about new output, or output stopping, while it isn't on screen. */
+    val notifyActivity = MutableStateFlow(false)
+    val notifyQuiet = MutableStateFlow(false)
+    lateinit var watch: Watch
+        internal set
+
+    /** Closed by the user, so it isn't reconnected. */
+    @Volatile internal var userClosed = false
+    /** How many reconnects in a row, for the wait before the next. */
+    internal var reconnectTries = 0
+    /** "Reconnecting in 5 s" and the like, while waiting to reconnect. */
+    val reconnecting = MutableStateFlow<String?>(null)
+
     fun startForward(f: PortForward) {
         val c = ssh ?: return
         Sessions.io.execute {
@@ -84,6 +97,17 @@ class Session(
     fun type(text: String) {
         Sessions.main.post { if (terminal.isRunning) terminal.write(text) }
     }
+
+    /** Types the snippet that runs on connect, asking for its placeholders. Called from the connecting thread. */
+    internal fun typeStartSnippet(s: com.rm.whelk.core.Snippet) {
+        val values = HashMap<String, String>()
+        for (f in com.rm.whelk.core.Placeholders.fields(s.text)) {
+            values[f.name] = Prompts.ask(Ask.Text(id, s.name.ifEmpty { "Snippet" }, "", f.name, secret = false)) ?: return
+        }
+        val user = Store.vault.value.identity(connection?.identityId)?.username.orEmpty()
+        val text = com.rm.whelk.core.Placeholders.fill(s.text, values, connection?.host.orEmpty(), user)
+        type(if (s.enter) text + "\r" else text)
+    }
 }
 
 /** The open sessions, for the whole app. Sessions outlive the screens, kept alive by [SessionService]. */
@@ -96,6 +120,33 @@ object Sessions {
 
     private var nextId = 1
     private lateinit var appContext: Context
+
+    /** Sessions typing into each other: keys typed in one go to all the others in the set. */
+    val typingTogether = MutableStateFlow<Set<Int>>(emptySet())
+
+    /** A reconnected session's new id, by its old one, so a screen showing the old one can follow. */
+    private val replacedBy = HashMap<Int, Int>()
+
+    fun current(id: Int): Session? {
+        var i = id
+        repeat(20) { find(i)?.let { return it }; i = replacedBy[i] ?: return null }
+        return null
+    }
+
+    private val ticker = object : Runnable {
+        override fun run() {
+            val now = System.currentTimeMillis()
+            for (s in state.value) s.watch.tick(now)
+            main.postDelayed(this, 1000)
+        }
+    }
+
+    /** Starts the once a second check and watching for the network to come back. */
+    fun init(context: Context) {
+        appContext = context.applicationContext
+        main.post(ticker)
+        Reconnect.init(appContext)
+    }
 
     /** Called when the screen of a session changes, to redraw the view showing it. */
     var onScreenUpdate: ((TerminalSession) -> Unit)? = null
@@ -110,7 +161,13 @@ object Sessions {
      * [background], with no screen to show it, starts at once at a standard size; otherwise it
      * starts when the view sizes it, so the shell's first prompt is drawn at the right width.
      */
-    fun open(context: Context, connection: Connection?, forwards: Set<String> = emptySet(), background: Boolean = forwards.isNotEmpty()): Session {
+    fun open(
+        context: Context,
+        connection: Connection?,
+        forwards: Set<String> = emptySet(),
+        background: Boolean = forwards.isNotEmpty(),
+        startLog: Boolean = true,
+    ): Session {
         appContext = context.applicationContext
         val vault = Store.vault.value
         val type = connection?.type ?: ConnectionType.LOCAL
@@ -125,6 +182,17 @@ object Sessions {
             ConnectionType.TCP, ConnectionType.SERIAL, ConnectionType.BLUETOOTH -> LineTerminal(appContext, session, rows, client)
         }
         session.terminal.mSessionName = title
+        session.watch = Watch(session)
+        session.terminal.mOutputListener = session.watch
+        session.terminal.mInputListener = TerminalSession.InputListener { data, off, count ->
+            // Called on the main thread from the view.
+            val together = typingTogether.value
+            if (session.id in together) {
+                val bytes = data.copyOfRange(off, off + count)
+                for (other in state.value) if (other.id != session.id && other.id in together && other.terminal.isRunning) other.terminal.write(bytes, 0, bytes.size)
+            }
+        }
+        if (startLog) Settings.value.logFolder?.let { folder -> Logs.startInFolder(appContext, session, folder) }
         if (connection != null) {
             Store.touch(connection)
             vault.liveForwards().filter { it.connectionId == connection.id && it.autoStart }
@@ -142,6 +210,10 @@ object Sessions {
 
     /** Disconnects and forgets the session. */
     fun close(session: Session) {
+        session.userClosed = true
+        session.watch.stopLog()
+        Reconnect.cancel(session)
+        typingTogether.update { it - session.id }
         Prompts.cancel(session.id)
         SecurityKey.cancel(session.id)
         session.stopAllForwards()
@@ -154,9 +226,22 @@ object Sessions {
         state.value.toList().forEach { close(it) }
     }
 
-    /** Opens the session again after it closed, in the same place in the list. */
+    /**
+     * Opens the session again after it closed, in the same place in the list. What was on screen
+     * comes along as plain text, and so does a log being written.
+     */
     fun reconnect(context: Context, session: Session): Session {
-        val fresh = open(context, session.connection)
+        session.userClosed = true
+        Reconnect.cancel(session)
+        val before = session.terminal.emulator?.screen?.transcriptTextWithoutJoinedLines
+        val fresh = open(context, session.connection, session.autoForwards.toSet(), background = true, startLog = session.watch.logging == null)
+        if (!before.isNullOrBlank()) fresh.terminal.feed(before.replace("\n", "\r\n") + "\r\n")
+        fresh.reconnectTries = session.reconnectTries
+        fresh.notifyActivity.value = session.notifyActivity.value
+        fresh.notifyQuiet.value = session.notifyQuiet.value
+        fresh.watch.adoptLog(session.watch)
+        replacedBy[session.id] = fresh.id
+        typingTogether.update { if (session.id in it) it - session.id + fresh.id else it }
         state.update { list ->
             val without = list - fresh
             val i = without.indexOf(session)
@@ -185,6 +270,9 @@ object Sessions {
         val text = Paste.clean(raw, Settings.value.straightenPaste)
         if (text.isEmpty()) return
         session.emulator?.paste(text)
+        val s = of(session) ?: return
+        val together = typingTogether.value
+        if (s.id in together) for (other in state.value) if (other.id != s.id && other.id in together) other.terminal.emulator?.paste(text)
     }
 
     private fun localShell(context: Context, rows: Int): TerminalSession {
@@ -214,6 +302,20 @@ object Sessions {
             s.state.value = SessionState.CLOSED
             s.stopAllForwards()
             changed()
+            val dropped = (finishedSession as? com.termux.terminal.StreamSession)?.mEndedWithError == true
+            if (dropped && !s.userClosed) {
+                if (Settings.value.autoReconnect) Reconnect.schedule(s)
+                else if (Alerts.away(s)) Alerts.post(s, Alerts.KIND_DROPPED, s.title, "Disconnected")
+            }
+        }
+
+        override fun onNotify(session: TerminalSession, title: String, body: String) {
+            val s = of(session) ?: return
+            if (Alerts.away(s)) {
+                Alerts.post(s, Alerts.KIND_PROGRAM, title.ifEmpty { s.title }, body.ifEmpty { title })
+            } else {
+                main.post { android.widget.Toast.makeText(appContext, listOf(title, body).filter { it.isNotEmpty() }.joinToString(": "), android.widget.Toast.LENGTH_LONG).show() }
+            }
         }
 
         override fun onCopyTextToClipboard(session: TerminalSession, text: String) {
@@ -233,6 +335,7 @@ object Sessions {
         }
 
         override fun onBell(session: TerminalSession) {
+            of(session)?.let { s -> if (Settings.value.notifyBell && Alerts.away(s)) Alerts.post(s, Alerts.KIND_BELL, s.title, "Bell") }
             if (!Settings.value.vibrateOnBell) return
             val v = appContext.getSystemService(Vibrator::class.java) ?: return
             v.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))

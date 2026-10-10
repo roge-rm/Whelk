@@ -45,7 +45,7 @@ class SshTerminal(
         Sessions.main.post { Sessions.changed() }
         feed("\u001b[2K\r")
         for (id in session.autoForwards.toList()) vault.forward(id)?.let { session.startForward(it) }
-        vault.snippet(conn.startSnippetId)?.let { s -> session.type(if (s.enter) s.text + "\r" else s.text) }
+        vault.snippet(conn.startSnippetId)?.let { s -> Sessions.io.execute { session.typeStartSnippet(s) } }
         return Streams(Codec.input(sh.inputStream, conn.charset), Codec.output(sh.outputStream, conn.charset, conn.backspace))
     }
 

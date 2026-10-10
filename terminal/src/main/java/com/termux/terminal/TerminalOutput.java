@@ -29,4 +29,8 @@ public abstract class TerminalOutput {
 
     public abstract void onColorsChanged();
 
+    /** A program asked for a desktop notification (OSC 9 or 777). Whelk addition. */
+    public void onNotify(String title, String body) {
+    }
+
 }

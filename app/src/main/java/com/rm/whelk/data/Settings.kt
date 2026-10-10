@@ -50,6 +50,12 @@ data class Prefs(
     val dynamicColour: Boolean = false,
     /** The row of keys above the keyboard, in order. */
     val extraKeyList: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaults,
+    val notifyBell: Boolean = true,
+    val autoReconnect: Boolean = true,
+    /** Keep the CPU and Wi-Fi awake while sessions are open. */
+    val keepAwake: Boolean = false,
+    /** A folder to log every session to, or null. A tree URI. */
+    val logFolder: String? = null,
 )
 
 object Settings {
@@ -81,6 +87,10 @@ object Settings {
             extraKeyList = prefs.getString("extraKeyList", null)?.let { j ->
                 runCatching { Vault.json.decodeFromString(ListSerializer(ExtraKey.serializer()), j) }.getOrNull()
             } ?: d.extraKeyList,
+            notifyBell = prefs.getBoolean("notifyBell", d.notifyBell),
+            autoReconnect = prefs.getBoolean("autoReconnect", d.autoReconnect),
+            keepAwake = prefs.getBoolean("keepAwake", d.keepAwake),
+            logFolder = prefs.getString("logFolder", null),
         )
     }
 
@@ -104,6 +114,10 @@ object Settings {
             .putBoolean("askBeforeAgent", p.askBeforeAgent)
             .putString("appTheme", p.appTheme.name)
             .putBoolean("dynamicColour", p.dynamicColour)
+            .putBoolean("notifyBell", p.notifyBell)
+            .putBoolean("autoReconnect", p.autoReconnect)
+            .putBoolean("keepAwake", p.keepAwake)
+            .putString("logFolder", p.logFolder)
             .putString("extraKeyList", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyList))
             .apply()
     }

@@ -763,7 +763,7 @@ public final class TerminalView extends View {
         } else if (event.isSystem() && (!mClient.shouldBackButtonBeMappedToEscape() || keyCode != KeyEvent.KEYCODE_BACK)) {
             return super.onKeyDown(keyCode, event);
         } else if (event.getAction() == KeyEvent.ACTION_MULTIPLE && keyCode == KeyEvent.KEYCODE_UNKNOWN) {
-            mTermSession.write(event.getCharacters());
+            mTermSession.writeFromUser(event.getCharacters());
             return true;
         }
 
@@ -898,7 +898,7 @@ public final class TerminalView extends View {
         TerminalEmulator term = mTermSession.getEmulator();
         String code = KeyHandler.getCode(keyCode, keyMod, term.isCursorKeysApplicationMode(), term.isKeypadApplicationMode());
         if (code == null) return false;
-        mTermSession.write(code);
+        mTermSession.writeFromUser(code);
         return true;
     }
 
@@ -1077,7 +1077,7 @@ public final class TerminalView extends View {
     @Override
     public void autofill(AutofillValue value) {
         if (value.isText()) {
-            mTermSession.write(value.getTextValue().toString());
+            mTermSession.writeFromUser(value.getTextValue().toString());
         }
 
         resetAutoFill();
