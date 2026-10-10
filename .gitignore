@@ -24,3 +24,6 @@ __pycache__/
 # Working design notes. Kept on disk, never committed.
 /docs/
 core.*
+
+# Notes for Claude Code, kept on disk only.
+CLAUDE.md
