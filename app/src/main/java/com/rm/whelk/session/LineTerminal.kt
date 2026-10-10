@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
+import com.rm.whelk.core.Codec
 import com.rm.whelk.core.ConnectionType
 import com.rm.whelk.core.FlowControl
 import com.rm.whelk.core.LineOutput
@@ -66,8 +67,8 @@ class LineTerminal(
         feed("\u001b[2K\r")
         session.state.value = SessionState.OPEN
         Sessions.main.post { Sessions.changed() }
-        val out = LineOutput(streams.out, conn.line) { bytes -> feed(bytes, 0, bytes.size) }
-        return Streams(streams.`in`, out)
+        val out = LineOutput(Codec.output(streams.out, conn.charset, conn.backspace), conn.line) { bytes -> feed(bytes, 0, bytes.size) }
+        return Streams(Codec.input(streams.`in`, conn.charset), out)
     }
 
     override fun onResize(columns: Int, rows: Int, cellWidthPixels: Int, cellHeightPixels: Int) {}

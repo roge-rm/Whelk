@@ -1,5 +1,6 @@
 package com.rm.whelk.session
 
+import com.rm.whelk.core.Codec
 import com.rm.whelk.core.Telnet
 import com.rm.whelk.data.Settings
 import com.termux.terminal.StreamSession
@@ -27,7 +28,7 @@ class TelnetTerminal(
         feed("\u001b[2K\r")
         session.state.value = SessionState.OPEN
         Sessions.main.post { Sessions.changed() }
-        return Streams(t.input, t.output)
+        return Streams(Codec.input(t.input, conn.charset), Codec.output(t.output, conn.charset, conn.backspace))
     }
 
     override fun onResize(columns: Int, rows: Int, cellWidthPixels: Int, cellHeightPixels: Int) {

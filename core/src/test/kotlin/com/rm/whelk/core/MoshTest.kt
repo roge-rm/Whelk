@@ -20,6 +20,12 @@ class MoshTest {
     }
 
     @Test
+    fun envAndTmux() {
+        val c = Mosh.serverCommand(null, "C.UTF-8", mapOf("EDITOR" to "vim", "MSG" to "it's here"), Mosh.tmux("main"))
+        assertEquals("mosh-server new -s -c 256 -l LANG=C.UTF-8 -l LC_ALL=C.UTF-8 -l EDITOR=vim -l 'MSG=it'\\''s here' -- tmux new -A -s main", c)
+    }
+
+    @Test
     fun failures() {
         assertEquals("mosh-server isn't installed on the server", Mosh.failure("sh: mosh-server: not found"))
         assertTrue(Mosh.localeRefused("mosh-server needs a UTF-8 native locale to run.\nUnfortunately, the local environment ([no charset variables]) specifies\nthe character set \"US-ASCII\""))

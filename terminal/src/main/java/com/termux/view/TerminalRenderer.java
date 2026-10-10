@@ -39,6 +39,10 @@ public final class TerminalRenderer {
 
         mTextPaint.setTypeface(typeface);
         mTextPaint.setAntiAlias(true);
+        // Whelk: place glyphs at fractional positions for smoother spacing, and keep ligatures off
+        // so every character stays in its own cell.
+        mTextPaint.setSubpixelText(true);
+        mTextPaint.setFontFeatureSettings("'liga' 0, 'calt' 0, 'dlig' 0");
         mTextPaint.setTextSize(textSize);
 
         mFontLineSpacing = (int) Math.ceil(mTextPaint.getFontSpacing());

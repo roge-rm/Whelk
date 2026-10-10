@@ -1,12 +1,13 @@
 package com.rm.whelk.session
 
+import com.rm.whelk.core.Codec
+import com.rm.whelk.core.Mosh
 import com.rm.whelk.core.SshConnection
 import com.rm.whelk.core.SshTarget
 import com.rm.whelk.data.Settings
 import com.rm.whelk.data.Store
 import com.termux.terminal.StreamSession
 import com.termux.terminal.TerminalSessionClient
-import net.schmizz.sshj.connection.channel.direct.Session as SshChannel
 
 /** A terminal on an SSH shell. Connects when the view first sizes it. */
 class SshTerminal(
@@ -15,7 +16,7 @@ class SshTerminal(
     client: TerminalSessionClient,
 ) : StreamSession(transcriptRows, client) {
     @Volatile private var connection: SshConnection? = null
-    @Volatile private var shell: SshChannel.Shell? = null
+    @Volatile private var shell: net.schmizz.sshj.connection.channel.direct.SessionChannel? = null
     @Volatile private var size = intArrayOf(80, 24)
     @Volatile private var stopped = false
 
@@ -34,7 +35,8 @@ class SshTerminal(
             c.close()
             throw IllegalStateException("Cancelled")
         }
-        val (_, sh) = c.openShell(Settings.value.terminalType, size[0], size[1])
+        val command = conn.tmux?.takeIf { it.isNotBlank() }?.let { Mosh.tmux(it.trim()) }
+        val sh = c.openShell(Settings.value.terminalType, size[0], size[1], conn.env, command)
         shell = sh
         // The view may have changed size while connecting.
         if (size[0] != columns || size[1] != rows) sh.changeWindowDimensions(size[0], size[1], 0, 0)
@@ -44,7 +46,7 @@ class SshTerminal(
         feed("\u001b[2K\r")
         for (id in session.autoForwards.toList()) vault.forward(id)?.let { session.startForward(it) }
         vault.snippet(conn.startSnippetId)?.let { s -> session.type(if (s.enter) s.text + "\r" else s.text) }
-        return Streams(sh.inputStream, sh.outputStream)
+        return Streams(Codec.input(sh.inputStream, conn.charset), Codec.output(sh.outputStream, conn.charset, conn.backspace))
     }
 
     override fun onResize(columns: Int, rows: Int, cellWidthPixels: Int, cellHeightPixels: Int) {

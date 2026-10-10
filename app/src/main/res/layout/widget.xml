@@ -13,7 +13,7 @@
         android:id="@+id/widget_icon"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:src="@drawable/ic_notification"
+        android:src="@mipmap/ic_launcher_monochrome"
         android:tint="#FFE8C9A0"
         android:contentDescription="@null" />
 

@@ -29,6 +29,8 @@ class WhelkApp : Application() {
         Settings.init(this)
         Store.init(this)
         Sync.init(this)
+        com.rm.whelk.ui.Shortcuts.update(this, Store.vault.value)
+        Store.addListener { v -> com.rm.whelk.ui.Shortcuts.update(this, v) }
 
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(

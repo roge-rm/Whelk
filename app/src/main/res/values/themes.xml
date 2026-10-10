@@ -5,5 +5,4 @@
         <item name="android:navigationBarColor">@color/background</item>
     </style>
     <color name="background">#FF121417</color>
-    <color name="icon_background">#FF1B2A33</color>
 </resources>

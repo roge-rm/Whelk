@@ -8,6 +8,7 @@ import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.connection.channel.direct.Parameters
 import net.schmizz.sshj.connection.channel.direct.Session
+import net.schmizz.sshj.connection.channel.direct.SessionChannel
 import net.schmizz.sshj.connection.channel.forwarded.RemotePortForwarder
 import net.schmizz.sshj.connection.channel.forwarded.SocketForwardingConnectListener
 import net.schmizz.sshj.transport.compression.DelayedZlibCompression
@@ -244,12 +245,17 @@ class SshConnection(
             listOfNotNull(hostKeys.get(t.host, t.port)?.keyType)
     }
 
-    /** Opens an interactive shell with a pty. */
-    fun openShell(term: String, columns: Int, rows: Int): Pair<Session, Session.Shell> {
-        val session = client.startSession()
+    /**
+     * Opens a terminal with a pty: a shell, or [command] in place of one. [env] is sent first, for
+     * the server to take what its AcceptEnv allows.
+     */
+    fun openShell(term: String, columns: Int, rows: Int, env: Map<String, String> = emptyMap(), command: String? = null): SessionChannel {
+        val session = client.startSession() as SessionChannel
+        for ((k, v) in env) runCatching { session.setEnvVar(k, v) }
         session.allocatePTY(term, columns, rows, 0, 0, emptyMap())
         requestAgent(session)
-        return session to session.startShell()
+        if (command != null) session.exec(command) else session.startShell()
+        return session
     }
 
     private fun requestAgent(session: Session) {

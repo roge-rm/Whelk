@@ -140,6 +140,13 @@ data class Connection(
     val moshServer: String? = null,
     /** For serial, Bluetooth and raw TCP. */
     val line: LineSettings = LineSettings(),
+    /** The server's character set, for ones that aren't UTF-8. */
+    val charset: String = "UTF-8",
+    val backspace: Backspace = Backspace.DEL,
+    /** Environment variables to send. The server only takes the ones its AcceptEnv allows. */
+    val env: Map<String, String> = emptyMap(),
+    /** A tmux session to attach to, or make, in place of a plain shell. */
+    val tmux: String? = null,
     /** Which device: "vendor:product" in hex for USB (empty for the first one), the address for Bluetooth. */
     val device: String = "",
     /** The device's name, to show in lists. */

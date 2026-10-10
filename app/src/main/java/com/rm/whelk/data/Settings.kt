@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+enum class AppTheme(val label: String) { SYSTEM("Same as the phone"), DARK("Dark"), LIGHT("Light") }
+
 enum class VolumeKeys(val label: String) {
     FONT_SIZE("Font size"),
     ARROWS("Up and down arrows"),
@@ -40,6 +42,9 @@ data class Prefs(
     val swipe: Swipe = Swipe.SESSIONS,
     /** Ask each time a server wants to sign with a key through agent forwarding. */
     val askBeforeAgent: Boolean = true,
+    val appTheme: AppTheme = AppTheme.DARK,
+    /** Colours from the wallpaper, on Android 12 and up. */
+    val dynamicColour: Boolean = false,
 )
 
 object Settings {
@@ -66,6 +71,8 @@ object Settings {
             straightenPaste = prefs.getBoolean("straightenPaste", d.straightenPaste),
             swipe = runCatching { Swipe.valueOf(prefs.getString("swipe", null)!!) }.getOrDefault(d.swipe),
             askBeforeAgent = prefs.getBoolean("askBeforeAgent", d.askBeforeAgent),
+            appTheme = runCatching { AppTheme.valueOf(prefs.getString("appTheme", null)!!) }.getOrDefault(d.appTheme),
+            dynamicColour = prefs.getBoolean("dynamicColour", d.dynamicColour),
         )
     }
 
@@ -87,6 +94,8 @@ object Settings {
             .putBoolean("straightenPaste", p.straightenPaste)
             .putString("swipe", p.swipe.name)
             .putBoolean("askBeforeAgent", p.askBeforeAgent)
+            .putString("appTheme", p.appTheme.name)
+            .putBoolean("dynamicColour", p.dynamicColour)
             .apply()
     }
 }

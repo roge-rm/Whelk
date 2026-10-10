@@ -172,7 +172,7 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search") },
+                placeholder = { Text("Search, or user@host to connect") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "Clear") }
@@ -203,6 +203,24 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
                 if (group != null) {
                     FilterChip(selected = false, onClick = { nav.go(Screen.EditGroup(group)) }, label = { Text("Edit group") })
                 }
+            }
+        }
+        quickConnect(query)?.let { q ->
+            item(key = "quick") {
+                ListItem(
+                    headlineContent = { Text("Connect to ${q.label}") },
+                    supportingContent = { Text("Saved to your connections") },
+                    leadingContent = {
+                        Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    },
+                    modifier = Modifier.combinedClickableCompat(onClick = {
+                        val c = saveQuick(q)
+                        query = ""
+                        connect(nav, context, c)
+                    }),
+                )
             }
         }
         item {
@@ -325,6 +343,10 @@ private fun ConnectionRow(c: Connection?, vault: Vault, nav: Nav, onConnect: () 
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Edit") }, onClick = { menu = false; nav.go(Screen.EditConnection(c.id)) })
+                        if (Shortcuts.canPin(LocalContext.current)) {
+                            val ctx = LocalContext.current
+                            DropdownMenuItem(text = { Text("Add to home screen") }, onClick = { menu = false; Shortcuts.pin(ctx, vault, c) })
+                        }
                         DropdownMenuItem(text = { Text("Duplicate") }, onClick = {
                             menu = false
                             Store.update { it.put(c.copy(id = newId(), name = if (c.name.isEmpty()) "" else c.name + " copy", lastUsed = 0, updated = now())) }
@@ -441,6 +463,10 @@ private fun ForwardsTab(nav: Nav, vault: Vault) {
                     }
                 },
                 trailingContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (running && f.kind == com.rm.whelk.core.ForwardKind.LOCAL) {
+                        TextButton(onClick = { openForward(context, f) }) { Text("Open") }
+                    }
                     Switch(
                         checked = running,
                         enabled = conn != null,
@@ -459,6 +485,7 @@ private fun ForwardsTab(nav: Nav, vault: Vault) {
                             }
                         },
                     )
+                    }
                 },
                 modifier = Modifier.combinedClickableCompat(onClick = { nav.go(Screen.EditForward(f.id)) }),
             )
@@ -471,3 +498,54 @@ private fun ForwardsTab(nav: Nav, vault: Vault) {
 
 @Composable
 fun Gap() = Spacer(Modifier.width(8.dp))
+
+/** A user@host:port typed in the search box, to connect to without making a connection first. */
+data class QuickTarget(val user: String, val host: String, val port: Int) {
+    val label: String get() = (if (user.isEmpty()) "" else "$user@") + host + (if (port != 22) ":$port" else "")
+}
+
+private val QUICK = Regex("""^(?:([^@\s]+)@)?(\[[0-9a-fA-F:]+]|[A-Za-z0-9.-]+)(?::(\d{1,5}))?$""")
+
+fun quickConnect(query: String): QuickTarget? {
+    val q = query.trim()
+    // A bare word is a search; it takes an @, a dot or a port to look like a host.
+    if (q.isEmpty() || !(q.contains('@') || q.contains('.') || q.contains(':'))) return null
+    val m = QUICK.find(q) ?: return null
+    val port = m.groupValues[3].toIntOrNull() ?: 22
+    if (port !in 1..65535) return null
+    return QuickTarget(m.groupValues[1], m.groupValues[2].removeSurrounding("[", "]"), port)
+}
+
+/** Saves a quick connection, reusing a login with the same username and nothing else. */
+fun saveQuick(q: QuickTarget): Connection {
+    var conn: Connection? = null
+    Store.update { v ->
+        val existing = v.liveConnections().firstOrNull { c ->
+            c.host.equals(q.host, true) && c.port == q.port && c.type == ConnectionType.SSH &&
+                v.identity(c.identityId)?.username.orEmpty() == q.user
+        }
+        if (existing != null) {
+            conn = existing
+            return@update v
+        }
+        var vv = v
+        val identity = if (q.user.isEmpty()) null else v.liveIdentities().firstOrNull {
+            it.username == q.user && it.privateKey == null && it.password == null && it.name.isEmpty()
+        } ?: com.rm.whelk.core.Identity(username = q.user).also { vv = vv.put(it) }
+        val c = Connection(host = q.host, port = q.port, identityId = identity?.id)
+        conn = c
+        vv.put(c)
+    }
+    return conn!!
+}
+
+/** Opens a local forward's port in the browser. */
+fun openForward(context: android.content.Context, f: com.rm.whelk.core.PortForward) {
+    val scheme = if (f.destPort == 443 || f.destPort == 8443) "https" else "http"
+    val host = if (f.bindHost == "0.0.0.0" || f.bindHost.isEmpty()) "127.0.0.1" else f.bindHost
+    try {
+        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("$scheme://$host:${f.bindPort}/")))
+    } catch (e: android.content.ActivityNotFoundException) {
+        android.widget.Toast.makeText(context, "No browser to open it with", android.widget.Toast.LENGTH_SHORT).show()
+    }
+}

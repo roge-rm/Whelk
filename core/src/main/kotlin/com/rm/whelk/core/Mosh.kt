@@ -15,10 +15,18 @@ object Mosh {
     private val CONNECT = Regex("""MOSH CONNECT (\d{1,5}) ([A-Za-z0-9/+]{22})""")
 
     /** The command line for the server. [server] is the user's own, like a path or extra options. */
-    fun serverCommand(server: String?, locale: String): String {
+    fun serverCommand(server: String?, locale: String, env: Map<String, String> = emptyMap(), command: String? = null): String {
         val base = server?.trim()?.ifEmpty { null } ?: DEFAULT_SERVER
-        return "$base new -s -c 256 -l LANG=$locale -l LC_ALL=$locale"
+        val vars = env.entries.joinToString("") { (k, v) -> " -l ${shellQuote("$k=$v")}" }
+        val run = if (command != null) " -- $command" else ""
+        return "$base new -s -c 256 -l LANG=$locale -l LC_ALL=$locale$vars$run"
     }
+
+    /** The tmux command that attaches to session [name], making it if it isn't there. */
+    fun tmux(name: String): String = "tmux new -A -s ${shellQuote(name)}"
+
+    fun shellQuote(s: String): String =
+        if (s.all { it.isLetterOrDigit() || it in "-_./=:@%+," }) s else "'" + s.replace("'", "'\\''") + "'"
 
     fun parse(output: String): Connect? {
         val m = CONNECT.find(output) ?: return null

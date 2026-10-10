@@ -215,9 +215,10 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     TerminalView(ctx, null).apply {
                         isFocusable = true
                         isFocusableInTouchMode = true
+                        // Size first: it makes the renderer that the font is set on.
+                        setTextSize(spToPx(ctx, fontSize))
                         setTypeface(Fonts.typeface(ctx, prefs.font))
                         tag = prefs.font
-                        setTextSize(spToPx(ctx, fontSize))
                         keepScreenOn = prefs.keepScreenOn
                         view = this
                     }
@@ -373,6 +374,10 @@ private fun ForwardsDialog(session: Session, onDismiss: () -> Unit, onAdd: () ->
                             Text(f.title())
                             Text(f.kind.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             errors[f.id]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        }
+                        if (f.id in running && f.kind == com.rm.whelk.core.ForwardKind.LOCAL) {
+                            val ctx = LocalContext.current
+                            TextButton(onClick = { openForward(ctx, f) }) { Text("Open") }
                         }
                         Switch(
                             checked = f.id in running,

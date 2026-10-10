@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A prompt, for the status bar. -->
+<!-- The app icon's spiral, prompt and cursor, for the status bar. From branding/source/monochrome.svg. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M5,6 l6,6 l-6,6" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round"
-        android:pathData="M13,18 h6" />
+    android:viewportWidth="72"
+    android:viewportHeight="72">
+    <group android:translateX="-18" android:translateY="-14">
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="6" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M62,38h-24v24h36v-36h-48v48h48" />
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.4" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M47.5,45.5l4.5,4.5l-4.5,4.5" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M81.5,64h6a1.5,1.5 0,0 1,1.5 1.5v10a1.5,1.5 0,0 1,-1.5 1.5h-6a1.5,1.5 0,0 1,-1.5 -1.5v-10a1.5,1.5 0,0 1,1.5 -1.5z" />
+    </group>
 </vector>

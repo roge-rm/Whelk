@@ -19,6 +19,7 @@ import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.compose.ui.platform.LocalContext
 import com.rm.whelk.data.Settings
+import com.rm.whelk.data.AppTheme
 import com.rm.whelk.data.Swipe
 import com.rm.whelk.data.VolumeKeys
 import com.rm.whelk.session.Sessions
@@ -30,6 +31,12 @@ fun SettingsScreen(nav: Nav) {
     FormScreen(title = "Settings", onBack = { nav.back() }, onSave = null) {
         OutlinedButton(onClick = { nav.go(Screen.Backup) }, modifier = Modifier.fillMaxWidth()) { Text("Backup, sync and import") }
         OutlinedButton(onClick = { nav.go(Screen.KnownHosts) }, modifier = Modifier.fillMaxWidth()) { Text("Known hosts") }
+
+        Section("Look")
+        Choice("App theme", p.appTheme, AppTheme.values().toList(), { it.label }) { v -> Settings.update { it.copy(appTheme = v) } }
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            SwitchRow("Colours from the wallpaper", p.dynamicColour) { v -> Settings.update { it.copy(dynamicColour = v) } }
+        }
 
         Section("Security")
         Choice("Lock", p.lockAfter, listOf(-1, 0, 1, 5, 15, 60), ::lockName) { v ->

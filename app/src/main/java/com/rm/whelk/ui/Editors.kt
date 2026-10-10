@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.rm.whelk.core.Connection
+import com.rm.whelk.core.Backspace
+import com.rm.whelk.core.Codec
 import com.rm.whelk.core.ConnectionType
 import com.rm.whelk.core.EnterSends
 import com.rm.whelk.core.FlowControl
@@ -80,6 +82,10 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var forwardAgent by remember { mutableStateOf(original.forwardAgent) }
     var moshServer by remember { mutableStateOf(original.moshServer.orEmpty()) }
     var line by remember { mutableStateOf(original.line) }
+    var charset by remember { mutableStateOf(original.charset) }
+    var backspace by remember { mutableStateOf(original.backspace) }
+    var envText by remember { mutableStateOf(original.env.entries.joinToString("\n") { "${it.key}=${it.value}" }) }
+    var tmux by remember { mutableStateOf(original.tmux.orEmpty()) }
     var device by remember { mutableStateOf(original.device) }
     var deviceName by remember { mutableStateOf(original.deviceName) }
     var deviceError by remember { mutableStateOf<String?>(null) }
@@ -120,6 +126,13 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             forwardAgent = forwardAgent && type == ConnectionType.SSH,
             moshServer = moshServer.trim().ifEmpty { null },
             line = line,
+            charset = charset,
+            backspace = backspace,
+            env = envText.lines().mapNotNull { l ->
+                val i = l.indexOf('=')
+                if (i <= 0) null else l.substring(0, i).trim() to l.substring(i + 1)
+            }.filter { it.first.isNotEmpty() }.toMap(),
+            tmux = tmux.trim().ifEmpty { null }.takeIf { type == ConnectionType.SSH || type == ConnectionType.MOSH },
             device = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) device else "",
             deviceName = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) deviceName else "",
             updated = now(),
@@ -189,10 +202,16 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             }
         }
 
+        if (type != ConnectionType.LOCAL) {
+            Choice("Encoding", charset, Codec.CHARSETS, { it }) { charset = it }
+            Choice("Backspace sends", backspace, Backspace.values().toList(), { it.label }) { backspace = it }
+        }
         Choice("Colours", theme, listOf<String?>(null) + TerminalThemes.all.map { it.name }, { it ?: "Same as settings" }) { theme = it }
 
         if (type == ConnectionType.SSH || type == ConnectionType.MOSH) {
             Section("Advanced")
+            Field("Attach to tmux session", tmux, { tmux = it })
+            Field("Environment variables, NAME=value", envText, { envText = it }, singleLine = false, minLines = 2, monospace = true)
             Field("Keepalive seconds (0 for off)", keepAlive, { keepAlive = it.filter(Char::isDigit) }, number = true)
             SwitchRow("Compression", compression) { compression = it }
             if (type == ConnectionType.SSH) SwitchRow("Forward agent", forwardAgent) { forwardAgent = it }

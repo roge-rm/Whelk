@@ -36,7 +36,8 @@ class MoshStarter(private val context: Context, private val session: Session) : 
             var found: Mosh.Connect? = null
             var output = ""
             for (locale in Mosh.LOCALES) {
-                output = c.exec(Mosh.serverCommand(conn.moshServer, locale))
+                val tmux = conn.tmux?.takeIf { it.isNotBlank() }?.let { Mosh.tmux(it.trim()) }
+                output = c.exec(Mosh.serverCommand(conn.moshServer, locale, conn.env, tmux))
                 found = Mosh.parse(output)
                 if (found != null || !Mosh.localeRefused(output)) break
             }
