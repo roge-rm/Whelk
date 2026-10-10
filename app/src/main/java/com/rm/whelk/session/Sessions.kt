@@ -10,6 +10,7 @@ import android.os.Vibrator
 import com.rm.whelk.core.Connection
 import com.rm.whelk.core.ConnectionType
 import com.rm.whelk.core.ForwardKind
+import com.rm.whelk.core.Paste
 import com.rm.whelk.core.PortForward
 import com.rm.whelk.core.SshConnection
 import com.rm.whelk.data.Settings
@@ -161,6 +162,13 @@ object Sessions {
         SessionService.update(appContext)
     }
 
+    /** Cleans text and pastes it, bracketed if the program asked for that. */
+    fun paste(session: TerminalSession, raw: String) {
+        val text = Paste.clean(raw, Settings.value.straightenPaste)
+        if (text.isEmpty()) return
+        session.emulator?.paste(text)
+    }
+
     private fun localShell(context: Context, rows: Int): TerminalSession {
         val home = context.filesDir.absolutePath
         val env = arrayOf(
@@ -197,9 +205,13 @@ object Sessions {
 
         override fun onPasteTextFromClipboard(session: TerminalSession) {
             val cm = appContext.getSystemService(ClipboardManager::class.java)
-            val text = cm.primaryClip?.getItemAt(0)?.coerceToText(appContext)?.toString() ?: return
-            val emulator = session.emulator ?: return
-            emulator.paste(text)
+            val item = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0) ?: return
+            // The plain text, never the styled or HTML form a web page puts beside it.
+            val raw = item.text?.toString()
+                ?: item.htmlText?.let { android.text.Html.fromHtml(it, android.text.Html.FROM_HTML_MODE_COMPACT).toString() }
+                ?: item.coerceToText(appContext)?.toString()
+                ?: return
+            paste(session, raw)
         }
 
         override fun onBell(session: TerminalSession) {

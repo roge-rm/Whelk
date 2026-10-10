@@ -77,3 +77,31 @@ class VaultTest {
         assertFailsWith<Sealed.WrongPassphrase> { Sealed.open(box, "secret".toCharArray()) }
     }
 }
+
+class TeamTest {
+    @Test
+    fun teamPartTakesGroupAndWhatItUses() {
+        val g = Group(name = "work")
+        val idA = Identity(username = "a")
+        val idJ = Identity(username = "j")
+        val idX = Identity(username = "x")
+        val jump = Connection(host = "jump", identityId = idJ.id)
+        val a = Connection(host = "a", identityId = idA.id, viaId = jump.id, groupIds = listOf(g.id))
+        val other = Connection(host = "other", identityId = idX.id)
+        val gone = Connection(host = "gone", groupIds = listOf(g.id), deleted = true)
+        val f = PortForward(connectionId = a.id)
+        val v = Vault(
+            connections = listOf(jump, a, other, gone),
+            identities = listOf(idA, idJ, idX),
+            groups = listOf(g, Group(name = "home")),
+            forwards = listOf(f, PortForward(connectionId = other.id)),
+            snippets = listOf(Snippet(text = "ls")),
+        )
+        val part = v.teamPart(g.id)
+        assertEquals(setOf("a", "jump", "gone"), part.connections.map { it.host }.toSet())
+        assertEquals(setOf("a", "j"), part.identities.map { it.username }.toSet())
+        assertEquals(listOf(g), part.groups)
+        assertEquals(listOf(f), part.forwards)
+        assertTrue(part.snippets.isEmpty())
+    }
+}

@@ -12,6 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
+import androidx.biometric.BiometricManager
+import androidx.compose.ui.platform.LocalContext
 import com.rm.whelk.data.Settings
 import com.rm.whelk.data.VolumeKeys
 import com.rm.whelk.session.Sessions
@@ -19,7 +22,22 @@ import com.rm.whelk.session.Sessions
 @Composable
 fun SettingsScreen(nav: Nav) {
     val p by Settings.flow.collectAsState()
+    val context = LocalContext.current
     FormScreen(title = "Settings", onBack = { nav.back() }, onSave = null) {
+        OutlinedButton(onClick = { nav.go(Screen.Backup) }, modifier = Modifier.fillMaxWidth()) { Text("Backup and sync") }
+
+        Section("Security")
+        Choice("Lock", p.lockAfter, listOf(-1, 0, 1, 5, 15, 60), ::lockName) { v ->
+            val can = BiometricManager.from(context).canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            ) == BiometricManager.BIOMETRIC_SUCCESS
+            if (v >= 0 && !can) {
+                Toast.makeText(context, "Set a screen lock on the phone first", Toast.LENGTH_LONG).show()
+            } else {
+                Settings.update { it.copy(lockAfter = v) }
+            }
+        }
+
         Section("Terminal")
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Text size", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
@@ -38,11 +56,19 @@ fun SettingsScreen(nav: Nav) {
         Choice("Terminal type", p.terminalType, listOf("xterm-256color", "xterm", "screen-256color", "tmux-256color", "linux", "vt100"), { it }) { v ->
             Settings.update { it.copy(terminalType = v) }
         }
+        SwitchRow("Plain quotes and dashes when pasting", p.straightenPaste) { v -> Settings.update { it.copy(straightenPaste = v) } }
         SwitchRow("Extra keys row", p.extraKeys) { v -> Settings.update { it.copy(extraKeys = v) } }
         SwitchRow("Back key sends Esc", p.backIsEscape) { v -> Settings.update { it.copy(backIsEscape = v) } }
         SwitchRow("Vibrate on bell", p.vibrateOnBell) { v -> Settings.update { it.copy(vibrateOnBell = v) } }
         SwitchRow("Keep the screen on in a session", p.keepScreenOn) { v -> Settings.update { it.copy(keepScreenOn = v) } }
     }
+}
+
+private fun lockName(minutes: Int) = when (minutes) {
+    -1 -> "Off"
+    0 -> "Whenever I leave the app"
+    1 -> "After 1 minute away"
+    else -> "After $minutes minutes away"
 }
 
 /** Gives open sessions that use the default colours the new ones. */

@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Release signing comes from ../Keys/whelk-keystore.properties, beside the
@@ -73,6 +74,9 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.biometric)
+    // Biometric brings an old Fragment that can't take the request codes activity results use.
+    implementation(libs.androidx.fragment)
+    implementation(libs.androidx.documentfile)
     implementation(libs.jb.compose.runtime)
     implementation(libs.jb.compose.foundation)
     implementation(libs.jb.compose.ui)

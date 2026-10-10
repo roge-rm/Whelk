@@ -27,6 +27,8 @@ data class Prefs(
     val lockAfter: Int = -1,
     val scrollback: Int = 5000,
     val terminalType: String = "xterm-256color",
+    /** Turn curly quotes and long dashes into plain ones when pasting. */
+    val straightenPaste: Boolean = true,
 )
 
 object Settings {
@@ -50,6 +52,7 @@ object Settings {
             lockAfter = prefs.getInt("lockAfter", d.lockAfter),
             scrollback = prefs.getInt("scrollback", d.scrollback),
             terminalType = prefs.getString("terminalType", d.terminalType) ?: d.terminalType,
+            straightenPaste = prefs.getBoolean("straightenPaste", d.straightenPaste),
         )
     }
 
@@ -68,6 +71,7 @@ object Settings {
             .putInt("lockAfter", p.lockAfter)
             .putInt("scrollback", p.scrollback)
             .putString("terminalType", p.terminalType)
+            .putBoolean("straightenPaste", p.straightenPaste)
             .apply()
     }
 }

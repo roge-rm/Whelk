@@ -14,6 +14,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
+import android.view.WindowManager
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.core.content.ContextCompat
+import com.rm.whelk.data.Lock
+import com.rm.whelk.data.Settings
+import com.rm.whelk.data.Sync
+import com.rm.whelk.ui.BackupScreen
+import com.rm.whelk.ui.LockScreen
 import com.rm.whelk.ui.EditConnectionScreen
 import com.rm.whelk.ui.EditForwardScreen
 import com.rm.whelk.ui.EditGroupScreen
@@ -30,6 +42,58 @@ import com.rm.whelk.ui.WhelkTheme
 class MainActivity : FragmentActivity() {
     private val nav = Nav()
 
+    override fun onStart() {
+        super.onStart()
+        Lock.onStart()
+        Sync.schedule()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Lock.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Keeps the screen out of the recent apps view and screenshots while the lock is on.
+        if (Settings.value.lockAfter >= 0) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        debugClip(intent)
+    }
+
+    /**
+     * Debug builds only: puts text on the clipboard from adb, as plain text with an HTML copy the
+     * way a browser does, for testing paste. am start ... --es clip "text"
+     */
+    private fun debugClip(intent: android.content.Intent?) {
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        val text = intent?.getStringExtra("clip") ?: return
+        val html = "<p style=\"font-family:serif\"><b>" + android.text.TextUtils.htmlEncode(text) + "</b></p>"
+        getSystemService(android.content.ClipboardManager::class.java)
+            .setPrimaryClip(android.content.ClipData.newHtmlText("web", text, html))
+    }
+
+    fun unlock() {
+        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                Lock.unlock()
+            }
+        })
+        prompt.authenticate(
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Unlock Whelk")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .build()
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -38,10 +102,17 @@ class MainActivity : FragmentActivity() {
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+        debugClip(intent)
         setContent {
             WhelkTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    App(nav)
+                    val locked by Lock.locked.collectAsState()
+                    if (locked) {
+                        LockScreen(onUnlock = ::unlock)
+                        LaunchedEffect(Unit) { unlock() }
+                    } else {
+                        App(nav)
+                    }
                 }
             }
         }
@@ -61,7 +132,7 @@ fun App(nav: Nav) {
             is Screen.EditForward -> EditForwardScreen(nav, s.id, s.connectionId)
             is Screen.EditGroup -> EditGroupScreen(nav, s.id)
             Screen.Settings -> SettingsScreen(nav)
-            Screen.Backup -> SettingsScreen(nav)
+            Screen.Backup -> BackupScreen(nav)
         }
         PromptHost()
     }

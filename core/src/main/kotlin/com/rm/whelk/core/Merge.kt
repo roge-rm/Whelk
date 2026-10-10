@@ -28,3 +28,26 @@ private fun <T : Item> mergeItems(mine: List<T>, theirs: List<T>, cutoff: Long):
     }
     return out.values.filter { !(it.deleted && it.updated < cutoff) }
 }
+
+/**
+ * The part of the vault shared with a team through group [groupId]: the group, its connections
+ * (deleted ones too, so deletions reach the team), the jump hosts they go through, the identities
+ * all of those use, and their port forwards.
+ */
+fun Vault.teamPart(groupId: String): Vault {
+    val group = groups.filter { it.id == groupId }
+    val conns = LinkedHashMap<String, Connection>()
+    val queue = ArrayDeque(connections.filter { groupId in it.groupIds })
+    while (queue.isNotEmpty()) {
+        val c = queue.removeFirst()
+        if (conns.put(c.id, c) != null) continue
+        connections.firstOrNull { it.id == c.viaId }?.let { queue.addLast(it) }
+    }
+    val identityIds = conns.values.mapNotNull { it.identityId }.toSet()
+    return Vault(
+        groups = group,
+        connections = conns.values.toList(),
+        identities = identities.filter { it.id in identityIds },
+        forwards = forwards.filter { it.connectionId in conns },
+    )
+}

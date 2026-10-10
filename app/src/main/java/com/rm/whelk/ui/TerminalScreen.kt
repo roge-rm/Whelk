@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.rm.whelk.core.Paste
 import com.rm.whelk.data.Settings
 import com.rm.whelk.data.Store
 import com.rm.whelk.data.VolumeKeys
@@ -514,6 +515,17 @@ private class ViewClient(
     }
 
     override fun onEmulatorSet() {}
+
+    /** More than one character at once from the keyboard is a paste from its clipboard, or a swiped word. */
+    override fun onCommitText(text: CharSequence): Boolean {
+        if (text.length < 2) return false
+        val raw = text.toString()
+        if (!raw.contains('\n') && Paste.clean(raw, Settings.value.straightenPaste) == raw) return false
+        val session = view.currentSession ?: return false
+        Sessions.paste(session, raw)
+        modifiers.used()
+        return true
+    }
     override fun logError(tag: String, message: String) { android.util.Log.e(tag, message) }
     override fun logWarn(tag: String, message: String) {}
     override fun logInfo(tag: String, message: String) {}

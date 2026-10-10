@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.rm.whelk.data.Settings
 import com.rm.whelk.data.Store
+import com.rm.whelk.data.Sync
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.security.Security
 
@@ -17,6 +18,7 @@ class WhelkApp : Application() {
 
         Settings.init(this)
         Store.init(this)
+        Sync.init(this)
 
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(

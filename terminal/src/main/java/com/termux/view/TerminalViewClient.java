@@ -65,6 +65,14 @@ public interface TerminalViewClient {
 
     void onEmulatorSet();
 
+    /**
+     * Text the keyboard committed, before it's typed into the terminal. Return true if the client
+     * dealt with it, such as a paste from the keyboard's clipboard. Whelk addition.
+     */
+    default boolean onCommitText(CharSequence text) {
+        return false;
+    }
+
 
     void logError(String tag, String message);
 
