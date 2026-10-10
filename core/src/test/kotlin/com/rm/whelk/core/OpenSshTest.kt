@@ -7,8 +7,9 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * Against real OpenSSH: the test server from tools/test-server, which trusts the CA in its ca/
- * folder. Runs when WHELK_OPENSSH is set to its address, like 127.0.0.1:2222, and skips otherwise.
+ * Against real OpenSSH: the test server from tools/test-server, which trusts the CA that its
+ * run.sh makes in ca/. Runs when WHELK_OPENSSH is set to its address, like 127.0.0.1:2222, and
+ * skips otherwise.
  */
 class OpenSshTest {
     private val address = System.getenv("WHELK_OPENSSH")

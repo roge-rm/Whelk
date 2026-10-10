@@ -27,3 +27,6 @@ core.*
 
 # Notes for Claude Code, kept on disk only.
 CLAUDE.md
+
+# The test server's certificate authorities, made by tools/test-server/run.sh.
+/tools/test-server/ca/
