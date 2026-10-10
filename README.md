@@ -2,7 +2,7 @@
 
 <img src="branding/preview.png" alt="" width="380">
 
-Whelk is an SSH client for Android 8.1 and up. It also does Mosh, Telnet, serial over USB and Bluetooth, raw TCP and a local shell.
+Whelk is an SSH client for Android 8.1 and up. It also does Mosh, Telnet, serial over USB and Bluetooth, plain network connections and a local shell.
 
 It started as a replacement for JuiceSSH, which was discontinued, so it has what JuiceSSH had with the Pro features: connections, identities and groups, snippets, port forwards, jump hosts, sync and a good terminal. Then it goes further, with an SFTP browser, serial consoles, agent forwarding, certificates and security keys.
 
@@ -16,7 +16,8 @@ Dan (rm)
 
 ### Connections
 
-- SSH, Mosh, Telnet, raw TCP, USB serial, Bluetooth serial and the phone's own shell
+- SSH, Mosh, Telnet, USB serial, Bluetooth serial and the phone's own shell
+- Raw TCP: a plain connection to a host and port with nothing on top, for serial servers like ser2net, console servers and MUDs
 - Identities with a password, a key or both, shared between any number of connections
 - Groups with colours, search, and the connections you used last at the top
 - Type `user@host:port` in the search box to connect straight away
