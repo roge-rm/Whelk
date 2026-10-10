@@ -93,6 +93,8 @@ dependencies {
     // Biometric brings an old Fragment that can't take the request codes activity results use.
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.documentfile)
+    implementation(libs.yubikit.android)
+    implementation(libs.yubikit.fido)
     implementation(libs.jb.compose.runtime)
     implementation(libs.jb.compose.foundation)
     implementation(libs.jb.compose.ui)

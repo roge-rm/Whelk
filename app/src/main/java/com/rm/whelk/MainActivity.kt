@@ -55,8 +55,14 @@ class MainActivity : FragmentActivity() {
         Lock.onStop()
     }
 
+    override fun onPause() {
+        super.onPause()
+        com.rm.whelk.session.SecurityKey.stop()
+    }
+
     override fun onResume() {
         super.onResume()
+        if (com.rm.whelk.session.SecurityKey.pending.value != null) com.rm.whelk.session.SecurityKey.listen(this)
         // Keeps the screen out of the recent apps view and screenshots while the lock is on.
         if (Settings.value.lockAfter >= 0) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -124,6 +130,12 @@ class MainActivity : FragmentActivity() {
             WhelkTheme {
                 Surface(Modifier.fillMaxSize()) {
                     val locked by Lock.locked.collectAsState()
+                    val keyJob by com.rm.whelk.session.SecurityKey.pending.collectAsState()
+                    // Listen for security keys only while something is waiting on one.
+                    LaunchedEffect(keyJob) {
+                        if (keyJob != null) com.rm.whelk.session.SecurityKey.listen(this@MainActivity)
+                        else com.rm.whelk.session.SecurityKey.stop()
+                    }
                     if (locked) {
                         LockScreen(onUnlock = ::unlock)
                         LaunchedEffect(Unit) { unlock() }

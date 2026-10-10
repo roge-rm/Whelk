@@ -143,6 +143,7 @@ object Sessions {
     /** Disconnects and forgets the session. */
     fun close(session: Session) {
         Prompts.cancel(session.id)
+        SecurityKey.cancel(session.id)
         session.stopAllForwards()
         if (session.terminal.isRunning) session.terminal.finishIfRunning()
         state.update { it - session }

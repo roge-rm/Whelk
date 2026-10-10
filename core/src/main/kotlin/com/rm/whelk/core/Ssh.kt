@@ -109,6 +109,8 @@ class SshConnection(
     private val hostKeys: HostKeyStore,
     /** Keys to offer through agent forwarding, or null for none. */
     private val agent: AgentKeys? = null,
+    /** Signs with a FIDO security key, for sk- keys. */
+    private val securityKey: com.hierynomus.sshj.userauth.fido.SecurityKeySigner? = null,
 ) : Closeable {
     private var agentAttached = false
     private val clients = mutableListOf<SSHClient>()
@@ -155,7 +157,7 @@ class SshConnection(
             if (passphrase == null && Keys.isEncrypted(target.privateKey)) {
                 passphrase = prompter.passphrase(target) ?: throw CancelledException()
             }
-            methods += AuthPublickey(Keys.provider(target.privateKey, passphrase, target.certificate))
+            methods += AuthPublickey(Keys.provider(target.privateKey, passphrase, target.certificate, securityKey))
         }
         val password = PasswordOnce(target)
         methods += AuthKeyboardInteractive(Challenges(target, password))

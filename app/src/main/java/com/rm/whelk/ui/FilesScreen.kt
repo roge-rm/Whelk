@@ -83,7 +83,7 @@ private class Remote(private val connectionId: String, private val sessionId: In
             val vault = Store.vault.value
             val c = vault.connection(connectionId) ?: throw IllegalStateException("The connection is gone")
             val target = SshTarget.from(vault, c) ?: throw IllegalStateException("The jump hosts go round in a loop")
-            SshConnection(target, SessionPrompter(promptId) {}, Store.hostKeys).also {
+            SshConnection(target, SessionPrompter(promptId) {}, Store.hostKeys, null, com.rm.whelk.session.SecurityKey.Signer(promptId)).also {
                 own = it
                 it.connect()
             }
@@ -93,6 +93,7 @@ private class Remote(private val connectionId: String, private val sessionId: In
 
     fun close() {
         Prompts.cancel(promptId)
+        com.rm.whelk.session.SecurityKey.cancel(promptId)
         sftp?.close()
         own?.close()
         sftp = null

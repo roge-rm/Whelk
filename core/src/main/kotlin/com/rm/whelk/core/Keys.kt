@@ -1,5 +1,7 @@
 package com.rm.whelk.core
 
+import com.hierynomus.sshj.userauth.fido.SecurityKeySigner
+import com.hierynomus.sshj.userauth.keyprovider.OpenSSHKeyV1KeyFile
 import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.common.Buffer
 import net.schmizz.sshj.common.Factory
@@ -133,7 +135,12 @@ object Keys {
      * A key provider for sshj. The passphrase is only used if the key needs one. With a
      * [certificate], logging in offers the certificate in place of the bare public key.
      */
-    fun provider(privateKey: String, passphrase: String?, certificate: String? = null): KeyProvider {
+    fun provider(
+        privateKey: String,
+        passphrase: String?,
+        certificate: String? = null,
+        securityKey: SecurityKeySigner? = null,
+    ): KeyProvider {
         val format = KeyProviderUtil.detectKeyFileFormat(privateKey, false)
         val fkp: FileKeyProvider = Factory.Named.Util.create(config.fileKeyProviderFactories, format.toString())
             ?: throw IllegalArgumentException("Not a key Whelk can read")
@@ -142,6 +149,8 @@ object Keys {
                 passphrase?.toCharArray() ?: throw IllegalArgumentException("The key needs its passphrase")
             override fun shouldRetry(resource: Resource<*>?) = false
         }
+        // A security key's file says how to find the credential; the signing happens on the key.
+        if (securityKey != null && fkp is OpenSSHKeyV1KeyFile) fkp.setSecurityKeySigner(securityKey)
         fkp.init(privateKey, certificate?.trim()?.ifEmpty { null }, finder)
         return fkp
     }

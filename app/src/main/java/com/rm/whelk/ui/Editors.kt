@@ -57,6 +57,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** The prompts and security key job for making a key on a security key, apart from any session's. */
+private const val MAKE_KEY_PROMPTS = -2
+
 private fun portOf(text: String, fallback: Int): Int = text.trim().toIntOrNull()?.takeIf { it in 0..65535 } ?: fallback
 
 @Composable
@@ -218,6 +221,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
     var passphrase by remember { mutableStateOf(original.passphrase.orEmpty()) }
     var certificate by remember { mutableStateOf(original.certificate.orEmpty()) }
     var pastingCert by remember { mutableStateOf(false) }
+    var makingSk by remember { mutableStateOf(false) }
     var keyError by remember { mutableStateOf<String?>(null) }
     var generating by remember { mutableStateOf(false) }
     var chooseKind by remember { mutableStateOf(false) }
@@ -311,6 +315,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { chooseKind = true }, enabled = !generating) { Text("Generate") }
+            OutlinedButton(onClick = { makingSk = true }, enabled = !generating) { Text("Security key") }
             OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }) { Text("Import file") }
             OutlinedButton(onClick = { pasting = true }) { Text("Paste") }
             if (publicKey.isNotBlank()) {
@@ -343,6 +348,46 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                 if (certificate.isNotBlank()) OutlinedButton(onClick = { certificate = "" }) { Text("Remove") }
             }
         }
+    }
+
+    if (makingSk) {
+        var ed25519 by remember { mutableStateOf(true) }
+        var verify by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { makingSk = false },
+            title = { Text("Make a key on a security key") },
+            text = {
+                androidx.compose.foundation.layout.Column {
+                    Choice("Type", ed25519, listOf(true, false), { if (it) "Ed25519" else "ECDSA (older keys)" }) { ed25519 = it }
+                    SwitchRow("Ask for the key's PIN each time", verify) { verify = it }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    makingSk = false
+                    generating = true
+                    val id = MAKE_KEY_PROMPTS
+                    scope.launch {
+                        val made = withContext(Dispatchers.IO) {
+                            runCatching {
+                                com.rm.whelk.session.SecurityKey.make(id, ed25519, verify, comment()) {
+                                    com.rm.whelk.session.Prompts.ask(com.rm.whelk.session.Ask.Text(id, "Security key", "", "PIN", secret = true))
+                                }
+                            }
+                        }
+                        generating = false
+                        made.onSuccess {
+                            privateKey = it.privateKey
+                            publicKey = it.publicKey
+                            passphrase = ""
+                            certificate = ""
+                            keyError = null
+                        }.onFailure { if (it.message != "Cancelled") keyError = it.message ?: "That didn't work" }
+                    }
+                }) { Text("Make") }
+            },
+            dismissButton = { TextButton(onClick = { makingSk = false }) { Text("Cancel") } },
+        )
     }
 
     if (pastingCert) {

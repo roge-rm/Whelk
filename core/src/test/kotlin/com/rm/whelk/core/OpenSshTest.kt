@@ -91,6 +91,45 @@ class OpenSshTest {
         assertTrue(used >= 1)
     }
 
+    @Test
+    fun securityKey() {
+        if (address == null) return
+        // A pretend security key signing as a FIDO authenticator does; OpenSSH checks it in software.
+        val pair = org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator()
+            .apply { init(org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters(java.security.SecureRandom())) }.generateKeyPair()
+        val handle = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+        var touched = 0
+        val signer = com.hierynomus.sshj.userauth.fido.SecurityKeySigner { req ->
+            touched++
+            val authData = java.security.MessageDigest.getInstance("SHA-256").digest(req.application.toByteArray()) + byteArrayOf(0x01, 0, 0, 0, 1)
+            val s = org.bouncycastle.crypto.signers.Ed25519Signer().apply { init(true, pair.private) }
+            val signed = authData + req.challenge
+            s.update(signed, 0, signed.size)
+            com.hierynomus.sshj.userauth.fido.SecurityKeySignatureData(0x01, 1, s.generateSignature())
+        }
+        val raw = (pair.public as org.bouncycastle.crypto.params.Ed25519PublicKeyParameters).encoded
+        val sk = SecurityKeys.keyFile(SecurityKeys.ED25519, raw, handle, SecurityKeys.FLAG_USER_PRESENCE, "test-sk")
+
+        // Let the key in, through a certificate login.
+        val admin = Keys.generate(KeyKind.ED25519, "")
+        SshConnection(target(admin, certify(admin, "user_ca")), Trusting, NoStore).use { c ->
+            c.connect()
+            c.exec("mkdir -p ~/.ssh && echo '${sk.publicKey}' >> ~/.ssh/authorized_keys")
+        }
+        try {
+            SshConnection(target(sk, null), Trusting, NoStore, securityKey = signer).use { c ->
+                c.connect()
+                assertEquals("whelk\n", c.exec("whoami"))
+            }
+            assertEquals(1, touched)
+        } finally {
+            SshConnection(target(admin, certify(admin, "user_ca")), Trusting, NoStore).use { c ->
+                c.connect()
+                c.exec("sed -i '/test-sk/d' ~/.ssh/authorized_keys")
+            }
+        }
+    }
+
     companion object {
         fun keygen(dir: File, vararg args: String) {
             val p = ProcessBuilder("/usr/bin/ssh-keygen", *args).directory(dir).redirectErrorStream(true).start()

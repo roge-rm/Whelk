@@ -18,13 +18,20 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.rm.whelk.session.Ask
+import com.rm.whelk.session.KeyJob
 import com.rm.whelk.session.Prompts
+import com.rm.whelk.session.SecurityKey
 
 /** Shows the first question a session is waiting on, over whatever screen is showing. */
 @Composable
 fun PromptHost() {
     val pending by Prompts.pending.collectAsState()
-    val p = pending.firstOrNull() ?: return
+    val keyJob by SecurityKey.pending.collectAsState()
+    val p = pending.firstOrNull()
+    if (p == null) {
+        keyJob?.let { KeyDialog(it) }
+        return
+    }
     key(p) {
         when (val ask = p.ask) {
             is Ask.HostKey -> HostKeyDialog(ask, onAnswer = { Prompts.answer(p, if (it) "yes" else null) })
@@ -39,6 +46,19 @@ fun PromptHost() {
             )
         }
     }
+}
+
+@Composable
+private fun KeyDialog(job: KeyJob) {
+    val status by job.status.collectAsState()
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(dismissOnClickOutside = false, dismissOnBackPress = false),
+        title = { Text(job.title) },
+        text = { Text(status) },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = { SecurityKey.cancel(job) }) { Text("Cancel") } },
+    )
 }
 
 @Composable
