@@ -122,6 +122,7 @@ object Sessions {
             ConnectionType.MOSH -> MoshStarter.terminal(appContext, session, rows, client)
             ConnectionType.TELNET -> TelnetTerminal(session, rows, client)
             ConnectionType.LOCAL -> localShell(appContext, rows)
+            ConnectionType.TCP, ConnectionType.SERIAL, ConnectionType.BLUETOOTH -> LineTerminal(appContext, session, rows, client)
         }
         session.terminal.mSessionName = title
         if (connection != null) {

@@ -86,6 +86,7 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":terminal"))
+    implementation(project(":usbserial"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.biometric)

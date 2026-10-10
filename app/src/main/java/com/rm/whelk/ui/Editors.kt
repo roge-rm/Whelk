@@ -37,6 +37,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.rm.whelk.core.Connection
 import com.rm.whelk.core.ConnectionType
+import com.rm.whelk.core.EnterSends
+import com.rm.whelk.core.FlowControl
+import com.rm.whelk.core.LineSettings
+import com.rm.whelk.core.Parity
+import com.rm.whelk.core.StopBits
+import com.rm.whelk.session.Bluetooth
+import com.rm.whelk.session.Usb
 import com.rm.whelk.core.ForwardKind
 import com.rm.whelk.core.Group
 import com.rm.whelk.core.Identity
@@ -68,6 +75,10 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var compression by remember { mutableStateOf(original.compression) }
     var theme by remember { mutableStateOf(original.theme) }
     var moshServer by remember { mutableStateOf(original.moshServer.orEmpty()) }
+    var line by remember { mutableStateOf(original.line) }
+    var device by remember { mutableStateOf(original.device) }
+    var deviceName by remember { mutableStateOf(original.deviceName) }
+    var deviceError by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf(false) }
     var hostError by remember { mutableStateOf<String?>(null) }
 
@@ -76,12 +87,16 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var quickPassword by remember { mutableStateOf("") }
 
     fun save() {
-        if (type != ConnectionType.LOCAL && host.isBlank()) {
+        if (type.hasHost && host.isBlank()) {
             hostError = "Needs a host"
             return
         }
+        if (type == ConnectionType.BLUETOOTH && device.isEmpty()) {
+            deviceError = "Pick a device"
+            return
+        }
         var ident = identityId
-        if (ident == null && quickUser.isNotBlank() && type != ConnectionType.LOCAL) {
+        if (ident == null && quickUser.isNotBlank() && (type == ConnectionType.SSH || type == ConnectionType.MOSH)) {
             val newIdentity = Identity(name = "", username = quickUser.trim(), password = quickPassword.ifEmpty { null })
             Store.update { it.put(newIdentity) }
             ident = newIdentity.id
@@ -99,6 +114,9 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             compression = compression,
             theme = theme,
             moshServer = moshServer.trim().ifEmpty { null },
+            line = line,
+            device = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) device else "",
+            deviceName = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) deviceName else "",
             updated = now(),
         )
         Store.update { it.put(c) }
@@ -116,10 +134,17 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             type = it
         }
         Field("Nickname", name, { name = it })
-        if (type != ConnectionType.LOCAL) {
+        if (type.hasHost) {
             Field("Host", host, { host = it; hostError = null }, error = hostError)
             Field("Port", port, { port = it.filter(Char::isDigit) }, number = true)
         }
+        if (type == ConnectionType.SERIAL) {
+            UsbChoice(device, deviceName) { id, n -> device = id; deviceName = n }
+        }
+        if (type == ConnectionType.BLUETOOTH) {
+            BluetoothChoice(device, deviceName, deviceError) { a, n -> device = a; deviceName = n; deviceError = null }
+        }
+        if (type.isLine) LineEditor(type, line) { line = it }
         if (type == ConnectionType.SSH || type == ConnectionType.MOSH) {
             val identities = vault.liveIdentities().sortedBy { it.title().lowercase() }
             Choice("Identity", identityId, listOf<String?>(null) + identities.map { it.id }, { i ->
@@ -478,4 +503,66 @@ fun EditGroupScreen(nav: Nav, id: String?) {
             nav.back()
         }
     }
+}
+
+@Composable
+private fun UsbChoice(device: String, deviceName: String, onPick: (String, String) -> Unit) {
+    val context = LocalContext.current
+    var adapters by remember { mutableStateOf(Usb.adapters(context).map { it.id to it.name }) }
+    val options = listOf("" to "Any adapter") + adapters +
+        (if (device.isNotEmpty() && adapters.none { it.first == device }) listOf(device to deviceName.ifEmpty { device }) else emptyList())
+    Choice("Adapter", device, options.map { it.first }, { id -> options.firstOrNull { it.first == id }?.second ?: id }) { id ->
+        onPick(id, options.firstOrNull { it.first == id && id.isNotEmpty() }?.second.orEmpty())
+    }
+    TextButton(onClick = { adapters = Usb.adapters(context).map { it.id to it.name } }) {
+        Text(if (adapters.isEmpty()) "None plugged in. Look again" else "Look again")
+    }
+}
+
+@Composable
+private fun BluetoothChoice(address: String, deviceName: String, error: String?, onPick: (String, String) -> Unit) {
+    val context = LocalContext.current
+    var allowed by remember { mutableStateOf(Bluetooth.allowed(context)) }
+    var paired by remember { mutableStateOf(Bluetooth.paired(context)) }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        allowed = ok
+        paired = Bluetooth.paired(context)
+    }
+    if (!allowed) {
+        OutlinedButton(onClick = { ask.launch(android.Manifest.permission.BLUETOOTH_CONNECT) }) { Text("Allow Bluetooth") }
+        return
+    }
+    val options = paired.map { it.address to it.name } +
+        (if (address.isNotEmpty() && paired.none { it.address == address }) listOf(address to deviceName.ifEmpty { address }) else emptyList())
+    if (options.isEmpty()) {
+        Text("No paired devices. Pair one in the phone's Bluetooth settings first.", modifier = Modifier.padding(vertical = 8.dp))
+        TextButton(onClick = { paired = Bluetooth.paired(context) }) { Text("Look again") }
+        return
+    }
+    Choice("Device", address.ifEmpty { null }, options.map { it.first }, { a ->
+        options.firstOrNull { it.first == a }?.let { "${it.second} (${it.first})" } ?: "Pick a device"
+    }) { a -> if (a != null) onPick(a, options.first { it.first == a }.second) }
+    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+}
+
+@Composable
+private fun LineEditor(type: ConnectionType, line: LineSettings, onChange: (LineSettings) -> Unit) {
+    if (type == ConnectionType.SERIAL) {
+        Section("Line")
+        var custom by remember { mutableStateOf(line.baud !in LineSettings.BAUDS) }
+        Choice("Baud", if (custom) -1 else line.baud, LineSettings.BAUDS + -1, { if (it == -1) "Other" else it.toString() }) {
+            if (it == -1) custom = true else { custom = false; onChange(line.copy(baud = it)) }
+        }
+        if (custom) {
+            Field("Baud rate", line.baud.toString(), { t -> t.filter(Char::isDigit).toIntOrNull()?.let { onChange(line.copy(baud = it)) } }, number = true)
+        }
+        Choice("Data bits", line.dataBits, listOf(8, 7, 6, 5), { it.toString() }) { onChange(line.copy(dataBits = it)) }
+        Choice("Parity", line.parity, Parity.values().toList(), { it.label }) { onChange(line.copy(parity = it)) }
+        Choice("Stop bits", line.stopBits, StopBits.values().toList(), { it.label }) { onChange(line.copy(stopBits = it)) }
+        Choice("Flow control", line.flow, FlowControl.values().toList(), { it.label }) { onChange(line.copy(flow = it)) }
+    } else {
+        Section("Line")
+    }
+    Choice("Enter sends", line.enter, EnterSends.values().toList(), { it.label }) { onChange(line.copy(enter = it)) }
+    SwitchRow("Show what I type", line.localEcho) { onChange(line.copy(localEcho = it)) }
 }

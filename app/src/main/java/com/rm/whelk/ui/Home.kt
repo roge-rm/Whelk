@@ -294,6 +294,8 @@ private fun ConnectionRow(c: Connection?, vault: Vault, nav: Nav, onConnect: () 
     val subtitle = when {
         c == null -> "This device"
         c.type == ConnectionType.LOCAL -> "This device"
+        c.type == ConnectionType.SERIAL -> "USB serial · " + c.line.describe()
+        c.type == ConnectionType.BLUETOOTH -> "Bluetooth serial · " + c.device
         else -> buildString {
             append(c.type.label)
             append(" · ")

@@ -26,6 +26,8 @@ rootProject.name = "Whelk"
 // The terminal emulator and its view, from Termux, with sessions that can run
 // over a stream as well as a local pty.
 include(":terminal")
+// Drivers for USB serial adapters, from usb-serial-for-android.
+include(":usbserial")
 // The data, sync and SSH, with no Android code. Tested on the JVM.
 include(":core")
 // The Android app.

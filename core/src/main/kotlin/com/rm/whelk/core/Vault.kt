@@ -75,6 +75,45 @@ enum class ConnectionType(val label: String, val defaultPort: Int) {
     MOSH("Mosh", 22),
     TELNET("Telnet", 23),
     LOCAL("Local", 0),
+    TCP("Raw TCP", 23),
+    SERIAL("USB serial", 0),
+    BLUETOOTH("Bluetooth serial", 0),
+    ;
+
+    /** Connections to a device or socket with no login, which have line settings. */
+    val isLine: Boolean get() = this == TCP || this == SERIAL || this == BLUETOOTH
+    val hasHost: Boolean get() = this != LOCAL && this != SERIAL && this != BLUETOOTH
+}
+
+@Serializable
+enum class Parity(val label: String) { NONE("None"), ODD("Odd"), EVEN("Even"), MARK("Mark"), SPACE("Space") }
+
+@Serializable
+enum class StopBits(val label: String) { ONE("1"), ONE_HALF("1.5"), TWO("2") }
+
+@Serializable
+enum class FlowControl(val label: String) { NONE("None"), RTS_CTS("RTS/CTS"), XON_XOFF("XON/XOFF") }
+
+@Serializable
+enum class EnterSends(val label: String, val bytes: String) { CR("CR", "\r"), LF("LF", "\n"), CRLF("CR LF", "\r\n") }
+
+/** How a serial port, Bluetooth serial or raw TCP connection talks. */
+@Serializable
+data class LineSettings(
+    val baud: Int = 115200,
+    val dataBits: Int = 8,
+    val parity: Parity = Parity.NONE,
+    val stopBits: StopBits = StopBits.ONE,
+    val flow: FlowControl = FlowControl.NONE,
+    val enter: EnterSends = EnterSends.CR,
+    /** Show what's typed, for devices that don't echo it back. */
+    val localEcho: Boolean = false,
+) {
+    fun describe(): String = "$baud ${dataBits}${parity.label.first()}${stopBits.label}"
+
+    companion object {
+        val BAUDS = listOf(300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000, 1500000, 2000000, 3000000)
+    }
 }
 
 @Serializable
@@ -97,6 +136,12 @@ data class Connection(
     val theme: String? = null,
     /** The mosh-server command, when it isn't on the server's path or needs options. */
     val moshServer: String? = null,
+    /** For serial, Bluetooth and raw TCP. */
+    val line: LineSettings = LineSettings(),
+    /** Which device: "vendor:product" in hex for USB (empty for the first one), the address for Bluetooth. */
+    val device: String = "",
+    /** The device's name, to show in lists. */
+    val deviceName: String = "",
     val lastUsed: Long = 0,
     override val updated: Long = now(),
     override val deleted: Boolean = false,
@@ -105,6 +150,9 @@ data class Connection(
     fun title(vault: Vault): String {
         if (name.isNotEmpty()) return name
         if (type == ConnectionType.LOCAL) return "Local shell"
+        if (type == ConnectionType.SERIAL) return deviceName.ifEmpty { "USB serial" }
+        if (type == ConnectionType.BLUETOOTH) return deviceName.ifEmpty { "Bluetooth serial" }
+        if (type == ConnectionType.TCP) return if (port != type.defaultPort) "$host:$port" else host
         val user = vault.identity(identityId)?.username
         val portPart = if (port != type.defaultPort) ":$port" else ""
         return if (user.isNullOrEmpty()) "$host$portPart" else "$user@$host$portPart"
