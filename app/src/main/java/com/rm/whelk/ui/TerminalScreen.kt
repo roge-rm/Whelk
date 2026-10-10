@@ -54,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -108,6 +109,36 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
     var showForwards by remember { mutableStateOf(false) }
     var showLinks by remember { mutableStateOf<List<String>?>(null) }
     var title by remember { mutableStateOf(session.title) }
+    var searching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var matches by remember { mutableStateOf<List<Match>>(emptyList()) }
+    var matchIndex by remember { mutableIntStateOf(-1) }
+
+    fun showMatch(i: Int) {
+        val m = matches.getOrNull(i) ?: return
+        matchIndex = i
+        view?.showHighlight(m.row, m.x1, m.x2)
+    }
+
+    fun runSearch(q: String) {
+        query = q
+        val emulator = session.terminal.emulator ?: return
+        matches = findInTerminal(emulator, q)
+        // Start from the newest match, as that's usually what's wanted.
+        if (matches.isEmpty()) {
+            matchIndex = -1
+            view?.clearHighlight()
+        } else {
+            showMatch(matches.size - 1)
+        }
+    }
+
+    fun closeSearch() {
+        searching = false
+        query = ""
+        matches = emptyList()
+        view?.clearHighlight()
+    }
     var fontSize by remember { mutableIntStateOf(prefs.fontSize) }
     val theme = TerminalThemes.named(session.connection?.theme ?: prefs.theme)
 
@@ -182,6 +213,7 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                         menu = false
                         Sessions.client.onPasteTextFromClipboard(session.terminal)
                     })
+                    DropdownMenuItem(text = { Text("Find") }, onClick = { menu = false; searching = true })
                     DropdownMenuItem(text = { Text("Open a link") }, onClick = {
                         menu = false
                         showLinks = findLinks(session.terminal)
@@ -229,11 +261,21 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                         v.setTypeface(Fonts.typeface(v.context, prefs.font))
                         v.tag = prefs.font
                     }
-                    v.setTerminalViewClient(ViewClient(v, modifiers, ::showKeyboard, ::setFont, { fontSize }) { right ->
+                    v.setTerminalViewClient(ViewClient(v, modifiers, ::showKeyboard, ::setFont, { fontSize }, { right ->
                         // Swiping right goes back to the session before, like turning a page.
                         val i = sessions.indexOf(session)
                         val next = sessions.getOrNull(if (right) i - 1 else i + 1)
                         if (next != null) nav.swap(Screen.Terminal(next.id))
+                    }) { shortcut ->
+                        when (shortcut) {
+                            Shortcut.FIND -> searching = true
+                            Shortcut.NEXT, Shortcut.PREVIOUS -> {
+                                // Round the list, unlike swiping.
+                                val i = sessions.indexOf(session)
+                                val n = sessions.size
+                                if (n > 1) nav.swap(Screen.Terminal(sessions[(i + if (shortcut == Shortcut.NEXT) 1 else n - 1) % n].id))
+                            }
+                        }
                     })
                     v.keepScreenOn = prefs.keepScreenOn
                     if (v.currentSession !== session.terminal) {
@@ -260,8 +302,34 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
             }
         }
 
-        if (prefs.extraKeys) {
-            ExtraKeys(modifiers, onKey = { key -> view?.let { sendKey(it, key, modifiers) } })
+        if (searching) {
+            val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(Unit) { focus.requestFocus() }
+            Row(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = query,
+                    onValueChange = { runSearch(it) },
+                    placeholder = { Text("Find") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).padding(vertical = 4.dp).focusRequester(focus),
+                )
+                Text(
+                    if (matches.isEmpty()) (if (query.isEmpty()) "" else "0") else "${matchIndex + 1}/${matches.size}",
+                    Modifier.padding(horizontal = 8.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                TextButton(onClick = { if (matches.isNotEmpty()) showMatch((matchIndex - 1 + matches.size) % matches.size) }) { Text("↑") }
+                TextButton(onClick = { if (matches.isNotEmpty()) showMatch((matchIndex + 1) % matches.size) }) { Text("↓") }
+                TextButton(onClick = { closeSearch() }) { Text("Done") }
+            }
+        }
+
+        if (prefs.extraKeys && !searching) {
+            val keys = remember(prefs.extraKeyList) { prefs.extraKeyList.mapNotNull { ExtraKeys.toKey(it) } }
+            ExtraKeyRow(keys, modifiers, onKey = { key -> view?.let { sendKey(it, key, modifiers) } })
         }
     }
 
@@ -393,43 +461,13 @@ private fun ForwardsDialog(session: Session, onDismiss: () -> Unit, onAdd: () ->
     )
 }
 
-/** A key on the extra keys row. */
-sealed class Key(val label: String) {
-    class Code(label: String, val keyCode: Int) : Key(label)
-    class Text(label: String, val text: String = label) : Key(label)
-    object Ctrl : Key("Ctrl")
-    object Alt : Key("Alt")
-}
-
-private val extraKeys = listOf(
-    Key.Code("Esc", KeyEvent.KEYCODE_ESCAPE),
-    Key.Code("Tab", KeyEvent.KEYCODE_TAB),
-    Key.Ctrl,
-    Key.Alt,
-    Key.Code("←", KeyEvent.KEYCODE_DPAD_LEFT),
-    Key.Code("↑", KeyEvent.KEYCODE_DPAD_UP),
-    Key.Code("↓", KeyEvent.KEYCODE_DPAD_DOWN),
-    Key.Code("→", KeyEvent.KEYCODE_DPAD_RIGHT),
-    Key.Text("|"),
-    Key.Text("/"),
-    Key.Text("-"),
-    Key.Text("~"),
-    Key.Text("_"),
-    Key.Code("Home", KeyEvent.KEYCODE_MOVE_HOME),
-    Key.Code("End", KeyEvent.KEYCODE_MOVE_END),
-    Key.Code("PgUp", KeyEvent.KEYCODE_PAGE_UP),
-    Key.Code("PgDn", KeyEvent.KEYCODE_PAGE_DOWN),
-    Key.Code("Ins", KeyEvent.KEYCODE_INSERT),
-    Key.Code("Del", KeyEvent.KEYCODE_FORWARD_DEL),
-) + (1..12).map { Key.Code("F$it", KeyEvent.KEYCODE_F1 + it - 1) }
-
 @Composable
-private fun ExtraKeys(modifiers: Modifiers, onKey: (Key) -> Unit) {
+private fun ExtraKeyRow(keys: List<Key>, modifiers: Modifiers, onKey: (Key) -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).horizontalScroll(rememberScrollState()).height(44.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        for (k in extraKeys) {
+        for (k in keys) {
             val on = (k is Key.Ctrl && modifiers.ctrl) || (k is Key.Alt && modifiers.alt)
             val locked = (k is Key.Ctrl && modifiers.ctrlLock) || (k is Key.Alt && modifiers.altLock)
             Box(
@@ -480,6 +518,8 @@ private fun sendKey(view: TerminalView, key: Key, modifiers: Modifiers) {
     if (session.isRunning) modifiers.used()
 }
 
+enum class Shortcut { FIND, NEXT, PREVIOUS }
+
 /** Connects the Termux view to Whelk's settings and the extra keys. */
 private class ViewClient(
     private val view: TerminalView,
@@ -488,6 +528,7 @@ private class ViewClient(
     private val setFont: (Int) -> Unit,
     private val fontSize: () -> Int,
     private val switchSession: (Boolean) -> Unit,
+    private val onShortcut: (Shortcut) -> Unit,
 ) : TerminalViewClient {
     private var scale = 1f
 
@@ -509,6 +550,27 @@ private class ViewClient(
     override fun copyModeChanged(copyMode: Boolean) {}
 
     override fun onKeyDown(keyCode: Int, e: KeyEvent, session: TerminalSession): Boolean {
+        // Keyboard shortcuts use Ctrl+Shift, so plain Ctrl keys still reach programs.
+        if (e.isCtrlPressed && keyCode == KeyEvent.KEYCODE_TAB) {
+            onShortcut(if (e.isShiftPressed) Shortcut.PREVIOUS else Shortcut.NEXT)
+            return true
+        }
+        if (e.isCtrlPressed && e.isShiftPressed) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_C -> {
+                    if (view.isSelectingText) {
+                        view.selectedText?.let { Sessions.client.onCopyTextToClipboard(session, it) }
+                        view.stopTextSelectionMode()
+                    }
+                    return true
+                }
+                KeyEvent.KEYCODE_V -> { Sessions.client.onPasteTextFromClipboard(session); return true }
+                KeyEvent.KEYCODE_F -> { onShortcut(Shortcut.FIND); return true }
+                KeyEvent.KEYCODE_EQUALS, KeyEvent.KEYCODE_PLUS, KeyEvent.KEYCODE_NUMPAD_ADD -> { setFont(fontSize() + 1); return true }
+                KeyEvent.KEYCODE_MINUS, KeyEvent.KEYCODE_NUMPAD_SUBTRACT -> { setFont(fontSize() - 1); return true }
+                KeyEvent.KEYCODE_0 -> { setFont(14); return true }
+            }
+        }
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             val up = keyCode == KeyEvent.KEYCODE_VOLUME_UP
             when (Settings.value.volumeKeys) {

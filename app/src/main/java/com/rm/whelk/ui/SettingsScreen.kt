@@ -86,6 +86,7 @@ fun SettingsScreen(nav: Nav) {
         }
         SwitchRow("Plain quotes and dashes when pasting", p.straightenPaste) { v -> Settings.update { it.copy(straightenPaste = v) } }
         SwitchRow("Extra keys row", p.extraKeys) { v -> Settings.update { it.copy(extraKeys = v) } }
+        if (p.extraKeys) TextButton(onClick = { nav.go(Screen.ExtraKeys) }) { Text("Change the extra keys") }
         SwitchRow("Back key sends Esc", p.backIsEscape) { v -> Settings.update { it.copy(backIsEscape = v) } }
         SwitchRow("Vibrate on bell", p.vibrateOnBell) { v -> Settings.update { it.copy(vibrateOnBell = v) } }
         SwitchRow("Keep the screen on in a session", p.keepScreenOn) { v -> Settings.update { it.copy(keepScreenOn = v) } }

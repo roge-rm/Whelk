@@ -994,7 +994,12 @@ public final class TerminalView extends View {
                 mTextSelectionCursorController.getSelectors(sel);
             }
 
-            mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
+            // Whelk: with no selection, show the search match the same way.
+            if (sel[0] == -1 && mHighlightRow != Integer.MIN_VALUE) {
+                mRenderer.render(mEmulator, canvas, mTopRow, mHighlightRow, mHighlightRow, mHighlightX1, mHighlightX2);
+            } else {
+                mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
+            }
 
             // render the text selection handles
             renderTextSelection();
@@ -1003,6 +1008,33 @@ public final class TerminalView extends View {
 
     public TerminalSession getCurrentSession() {
         return mTermSession;
+    }
+
+    // Whelk: a highlighted run of cells on one row, for search. Rows count from the top of the
+    // screen, negative into the scrollback.
+    private int mHighlightRow = Integer.MIN_VALUE, mHighlightX1, mHighlightX2;
+
+    /** Highlights columns x1 to x2 of [row] and scrolls so it shows. */
+    public void showHighlight(int row, int x1, int x2) {
+        if (mEmulator == null) return;
+        mHighlightRow = row;
+        mHighlightX1 = x1;
+        mHighlightX2 = x2;
+        int rows = mEmulator.mRows;
+        if (row < mTopRow || row >= mTopRow + rows) {
+            int top = row - rows / 2;
+            mTopRow = Math.max(-mEmulator.getScreen().getActiveTranscriptRows(), Math.min(0, top));
+        }
+        invalidate();
+    }
+
+    public void clearHighlight() {
+        mHighlightRow = Integer.MIN_VALUE;
+        invalidate();
+    }
+
+    public boolean hasSelection() {
+        return isSelectingText();
     }
 
     private CharSequence getText() {

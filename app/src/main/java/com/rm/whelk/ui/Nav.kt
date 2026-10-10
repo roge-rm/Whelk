@@ -14,6 +14,7 @@ sealed class Screen {
     data class Files(val connectionId: String, val sessionId: Int? = null) : Screen()
     object Settings : Screen()
     object KnownHosts : Screen()
+    object ExtraKeys : Screen()
     object Backup : Screen()
 }
 

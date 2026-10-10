@@ -163,6 +163,7 @@ fun App(nav: Nav) {
             is Screen.Files -> com.rm.whelk.ui.FilesScreen(nav, s.connectionId, s.sessionId)
             Screen.Settings -> SettingsScreen(nav)
             Screen.KnownHosts -> com.rm.whelk.ui.KnownHostsScreen(nav)
+            Screen.ExtraKeys -> com.rm.whelk.ui.ExtraKeysScreen(nav)
             Screen.Backup -> BackupScreen(nav)
         }
         PromptHost()

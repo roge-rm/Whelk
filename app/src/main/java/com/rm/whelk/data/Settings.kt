@@ -2,7 +2,10 @@ package com.rm.whelk.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.rm.whelk.core.ExtraKey
+import com.rm.whelk.core.Vault
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.coroutines.flow.StateFlow
 
 enum class AppTheme(val label: String) { SYSTEM("Same as the phone"), DARK("Dark"), LIGHT("Light") }
@@ -45,6 +48,8 @@ data class Prefs(
     val appTheme: AppTheme = AppTheme.DARK,
     /** Colours from the wallpaper, on Android 12 and up. */
     val dynamicColour: Boolean = false,
+    /** The row of keys above the keyboard, in order. */
+    val extraKeyList: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaults,
 )
 
 object Settings {
@@ -73,6 +78,9 @@ object Settings {
             askBeforeAgent = prefs.getBoolean("askBeforeAgent", d.askBeforeAgent),
             appTheme = runCatching { AppTheme.valueOf(prefs.getString("appTheme", null)!!) }.getOrDefault(d.appTheme),
             dynamicColour = prefs.getBoolean("dynamicColour", d.dynamicColour),
+            extraKeyList = prefs.getString("extraKeyList", null)?.let { j ->
+                runCatching { Vault.json.decodeFromString(ListSerializer(ExtraKey.serializer()), j) }.getOrNull()
+            } ?: d.extraKeyList,
         )
     }
 
@@ -96,6 +104,7 @@ object Settings {
             .putBoolean("askBeforeAgent", p.askBeforeAgent)
             .putString("appTheme", p.appTheme.name)
             .putBoolean("dynamicColour", p.dynamicColour)
+            .putString("extraKeyList", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyList))
             .apply()
     }
 }
