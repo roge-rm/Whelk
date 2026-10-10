@@ -1,14 +1,14 @@
 # Whelk
 
-<img src="branding/preview.png" alt="" width="380">
+It's weird how hard it is to find a good, current, featureful, and free SSH client for Android. Here's one.
 
-Whelk is an SSH client for Android 8.1 and up. It also does Mosh, Telnet, serial over USB and Bluetooth, plain network connections and a local shell.
+Whelk is an SSH client for Android 8.1 and up. It also does Mosh, Telnet, serial over USB and Bluetooth, plain network connections, and a local shell.
 
-It started as a replacement for JuiceSSH, which was discontinued, so it has what JuiceSSH had with the Pro features: connections, identities and groups, snippets, port forwards, jump hosts, sync and a good terminal. Then it goes further, with an SFTP browser, serial consoles, agent forwarding, certificates and security keys.
+It started as a replacement for the discontinued JuiceSSH and has many of its features: connections, identities and groups, snippets, port forwards, jump hosts, sync and a good terminal. Then I added an SFTP browser, serial consoles, agent forwarding, certificates and security keys - maybe more to come?
 
-It's at 0.5. It's new and there will be rough edges. Let me know what works and what doesn't **[on my discord](https://discord.gg/9Wun47jGC6)**, or open an issue here.
+I'm calling this 0.5 as it's new and there are rough edges still. I'm working on it.
 
-Dan (rm)
+Dan
 
 ---
 
