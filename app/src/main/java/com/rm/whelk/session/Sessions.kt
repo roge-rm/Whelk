@@ -16,6 +16,7 @@ import com.rm.whelk.core.SshConnection
 import com.rm.whelk.data.Settings
 import com.rm.whelk.data.Store
 import com.rm.whelk.ui.TerminalThemes
+import com.rm.whelk.widget.ForwardWidget
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +59,7 @@ class Session(
                 }
                 forwards.update { it + (f.id to handle) }
                 forwardErrors.update { it - f.id }
+                Sessions.forwardsChanged()
             } catch (e: Exception) {
                 forwardErrors.update { it + (f.id to (e.message ?: e.javaClass.simpleName)) }
             }
@@ -68,12 +70,14 @@ class Session(
         val handle = forwards.value[id] ?: return
         forwards.update { it - id }
         Sessions.io.execute { runCatching { handle.close() } }
+        Sessions.forwardsChanged()
     }
 
     internal fun stopAllForwards() {
         val all = forwards.value.values.toList()
         forwards.value = emptyMap()
         all.forEach { runCatching { it.close() } }
+        if (all.isNotEmpty()) Sessions.forwardsChanged()
     }
 
     /** Types text into the session as if from the keyboard. */
@@ -155,6 +159,14 @@ object Sessions {
         session.stopAllForwards()
         SessionService.update(appContext)
         return fresh
+    }
+
+    /** Updates the notification and the forward widgets. Safe from any thread. */
+    internal fun forwardsChanged() {
+        main.post {
+            SessionService.update(appContext)
+            ForwardWidget.refreshAll(appContext)
+        }
     }
 
     internal fun changed() {

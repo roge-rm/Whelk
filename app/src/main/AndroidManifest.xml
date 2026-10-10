@@ -29,6 +29,43 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".widget.WidgetSetup"
+            android:exported="true"
+            android:theme="@style/Theme.Whelk">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widget.ConnectionWidget"
+            android:exported="true"
+            android:label="Whelk connection">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_connection" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.ForwardWidget"
+            android:exported="true"
+            android:label="Whelk port forward">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_forward" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.ForwardToggle"
+            android:exported="false" />
+
         <service
             android:name=".session.SessionService"
             android:exported="false"

@@ -23,7 +23,9 @@ import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import com.rm.whelk.data.Lock
 import com.rm.whelk.data.Settings
+import com.rm.whelk.data.Store
 import com.rm.whelk.data.Sync
+import com.rm.whelk.session.Sessions
 import com.rm.whelk.ui.BackupScreen
 import com.rm.whelk.ui.LockScreen
 import com.rm.whelk.ui.EditConnectionScreen
@@ -66,6 +68,20 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         debugClip(intent)
+        handle(intent)
+    }
+
+    /** A connection widget's tap: open a session for it. */
+    private fun handle(intent: android.content.Intent?) {
+        if (intent?.action != ACTION_CONNECT) return
+        val c = Store.vault.value.connection(intent.getStringExtra(EXTRA_CONNECTION)) ?: return
+        intent.action = null
+        nav.reset(Screen.Terminal(Sessions.open(this, c).id))
+    }
+
+    companion object {
+        const val ACTION_CONNECT = "com.rm.whelk.CONNECT"
+        const val EXTRA_CONNECTION = "connection"
     }
 
     /**
@@ -103,6 +119,7 @@ class MainActivity : FragmentActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         debugClip(intent)
+        handle(intent)
         setContent {
             WhelkTheme {
                 Surface(Modifier.fillMaxSize()) {

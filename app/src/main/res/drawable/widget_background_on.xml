@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A port forward that's running. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#E64A3A26" />
+    <stroke android:width="2dp" android:color="#FFE8C9A0" />
+    <corners android:radius="16dp" />
+</shape>
