@@ -24,7 +24,7 @@ data class Prefs(
     /** Terminal text size in sp. */
     val fontSize: Int = 14,
     val theme: String = "Whelk",
-    val font: String = "Monospace",
+    val font: String = "JetBrains Mono",
     val volumeKeys: VolumeKeys = VolumeKeys.FONT_SIZE,
     val keepScreenOn: Boolean = false,
     val extraKeys: Boolean = true,

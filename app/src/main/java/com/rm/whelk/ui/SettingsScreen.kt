@@ -12,6 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.TextButton
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +29,7 @@ fun SettingsScreen(nav: Nav) {
     val context = LocalContext.current
     FormScreen(title = "Settings", onBack = { nav.back() }, onSave = null) {
         OutlinedButton(onClick = { nav.go(Screen.Backup) }, modifier = Modifier.fillMaxWidth()) { Text("Backup, sync and import") }
+        OutlinedButton(onClick = { nav.go(Screen.KnownHosts) }, modifier = Modifier.fillMaxWidth()) { Text("Known hosts") }
 
         Section("Security")
         Choice("Lock", p.lockAfter, listOf(-1, 0, 1, 5, 15, 60), ::lockName) { v ->
@@ -47,6 +51,19 @@ fun SettingsScreen(nav: Nav) {
             OutlinedButton(onClick = { Settings.update { it.copy(fontSize = (it.fontSize - 1).coerceAtLeast(6)) } }) { Text("−") }
             Text("${p.fontSize}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = { Settings.update { it.copy(fontSize = (it.fontSize + 1).coerceAtMost(40)) } }) { Text("+") }
+        }
+        val fontFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val bytes = runCatching { context.contentResolver.openInputStream(uri)!!.use { it.readBytes() } }.getOrNull()
+            if (bytes != null && bytes.size < 30_000_000 && Fonts.setCustom(context, bytes)) {
+                Settings.update { it.copy(font = Fonts.CUSTOM) }
+            } else {
+                Toast.makeText(context, "That isn't a font Android can use", Toast.LENGTH_LONG).show()
+            }
+        }
+        Choice("Font", p.font, Fonts.names(context), { it }) { f -> Settings.update { it.copy(font = f) } }
+        TextButton(onClick = { fontFile.launch(arrayOf("font/*", "application/x-font-ttf", "application/octet-stream", "*/*")) }) {
+            Text("Use a font file")
         }
         Choice("Colours", p.theme, TerminalThemes.all.map { it.name }, { it }) { name ->
             Settings.update { it.copy(theme = name) }

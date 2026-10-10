@@ -215,12 +215,19 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     TerminalView(ctx, null).apply {
                         isFocusable = true
                         isFocusableInTouchMode = true
+                        setTypeface(Fonts.typeface(ctx, prefs.font))
+                        tag = prefs.font
                         setTextSize(spToPx(ctx, fontSize))
                         keepScreenOn = prefs.keepScreenOn
                         view = this
                     }
                 },
                 update = { v ->
+                    // The view's tag holds the font name it was last given.
+                    if (v.tag != prefs.font) {
+                        v.setTypeface(Fonts.typeface(v.context, prefs.font))
+                        v.tag = prefs.font
+                    }
                     v.setTerminalViewClient(ViewClient(v, modifiers, ::showKeyboard, ::setFont, { fontSize }) { right ->
                         // Swiping right goes back to the session before, like turning a page.
                         val i = sessions.indexOf(session)

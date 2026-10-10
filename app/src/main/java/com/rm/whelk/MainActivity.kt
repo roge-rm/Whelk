@@ -162,6 +162,7 @@ fun App(nav: Nav) {
             is Screen.EditGroup -> EditGroupScreen(nav, s.id)
             is Screen.Files -> com.rm.whelk.ui.FilesScreen(nav, s.connectionId, s.sessionId)
             Screen.Settings -> SettingsScreen(nav)
+            Screen.KnownHosts -> com.rm.whelk.ui.KnownHostsScreen(nav)
             Screen.Backup -> BackupScreen(nav)
         }
         PromptHost()

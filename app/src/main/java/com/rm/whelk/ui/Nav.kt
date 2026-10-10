@@ -13,6 +13,7 @@ sealed class Screen {
     data class EditGroup(val id: String?) : Screen()
     data class Files(val connectionId: String, val sessionId: Int? = null) : Screen()
     object Settings : Screen()
+    object KnownHosts : Screen()
     object Backup : Screen()
 }
 
