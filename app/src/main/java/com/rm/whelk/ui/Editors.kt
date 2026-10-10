@@ -66,6 +66,7 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var snippetId by remember { mutableStateOf(original.startSnippetId) }
     var keepAlive by remember { mutableStateOf(original.keepAlive.toString()) }
     var compression by remember { mutableStateOf(original.compression) }
+    var theme by remember { mutableStateOf(original.theme) }
     var deleting by remember { mutableStateOf(false) }
     var hostError by remember { mutableStateOf<String?>(null) }
 
@@ -95,6 +96,7 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             startSnippetId = snippetId,
             keepAlive = keepAlive.trim().toIntOrNull()?.coerceIn(0, 3600) ?: 30,
             compression = compression,
+            theme = theme,
             updated = now(),
         )
         Store.update { it.put(c) }
@@ -154,6 +156,8 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
                 }
             }
         }
+
+        Choice("Colours", theme, listOf<String?>(null) + TerminalThemes.all.map { it.name }, { it ?: "Same as settings" }) { theme = it }
 
         if (type == ConnectionType.SSH || type == ConnectionType.MOSH) {
             Section("Advanced")

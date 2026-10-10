@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.compose.ui.platform.LocalContext
 import com.rm.whelk.data.Settings
+import com.rm.whelk.data.Swipe
 import com.rm.whelk.data.VolumeKeys
 import com.rm.whelk.session.Sessions
 
@@ -50,6 +51,7 @@ fun SettingsScreen(nav: Nav) {
             recolour(name)
         }
         Choice("Volume keys", p.volumeKeys, VolumeKeys.values().toList(), { it.label }) { v -> Settings.update { it.copy(volumeKeys = v) } }
+        Choice("Swipe sideways to switch", p.swipe, Swipe.values().toList(), { it.label }) { v -> Settings.update { it.copy(swipe = v) } }
         Choice("Scrollback lines", p.scrollback, listOf(1000, 2000, 5000, 10000, 20000), { it.toString() }) { v ->
             Settings.update { it.copy(scrollback = v) }
         }

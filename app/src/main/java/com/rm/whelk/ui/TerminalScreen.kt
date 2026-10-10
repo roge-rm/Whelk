@@ -64,6 +64,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.rm.whelk.core.Paste
 import com.rm.whelk.data.Settings
 import com.rm.whelk.data.Store
+import com.rm.whelk.data.Swipe
 import com.rm.whelk.data.VolumeKeys
 import com.rm.whelk.session.Session
 import com.rm.whelk.session.SessionState
@@ -217,7 +218,12 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     }
                 },
                 update = { v ->
-                    v.setTerminalViewClient(ViewClient(v, modifiers, ::showKeyboard, ::setFont) { fontSize })
+                    v.setTerminalViewClient(ViewClient(v, modifiers, ::showKeyboard, ::setFont, { fontSize }) { right ->
+                        // Swiping right goes back to the session before, like turning a page.
+                        val i = sessions.indexOf(session)
+                        val next = sessions.getOrNull(if (right) i - 1 else i + 1)
+                        if (next != null) nav.swap(Screen.Terminal(next.id))
+                    })
                     v.keepScreenOn = prefs.keepScreenOn
                     if (v.currentSession !== session.terminal) {
                         v.attachSession(session.terminal)
@@ -466,6 +472,7 @@ private class ViewClient(
     private val showKeyboard: () -> Unit,
     private val setFont: (Int) -> Unit,
     private val fontSize: () -> Int,
+    private val switchSession: (Boolean) -> Unit,
 ) : TerminalViewClient {
     private var scale = 1f
 
@@ -515,6 +522,16 @@ private class ViewClient(
     }
 
     override fun onEmulatorSet() {}
+
+    override fun onSideFling(right: Boolean): Boolean {
+        val swipe = Settings.value.swipe
+        when (swipe) {
+            Swipe.OFF -> return false
+            Swipe.SESSIONS -> switchSession(right)
+            else -> view.currentSession?.write(swipe.prefix + if (right) swipe.previous else swipe.next)
+        }
+        return true
+    }
 
     /** More than one character at once from the keyboard is a paste from its clipboard, or a swiped word. */
     override fun onCommitText(text: CharSequence): Boolean {

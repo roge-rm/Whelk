@@ -190,6 +190,8 @@ public final class TerminalView extends View {
             @Override
             public boolean onFling(final MotionEvent e2, float velocityX, float velocityY) {
                 if (mEmulator == null) return true;
+                // Whelk: a mostly sideways fling goes to the client, for switching windows.
+                if (Math.abs(velocityX) > 2 * Math.abs(velocityY) && mClient.onSideFling(velocityX > 0)) return true;
                 // Do not start scrolling until last fling has been taken care of:
                 if (!mScroller.isFinished()) return true;
 

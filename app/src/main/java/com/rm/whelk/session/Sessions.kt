@@ -105,8 +105,12 @@ object Sessions {
 
     fun of(terminal: TerminalSession) = state.value.firstOrNull { it.terminal === terminal }
 
-    /** Opens a session for [connection], or the local shell when null. */
-    fun open(context: Context, connection: Connection?, forwards: Set<String> = emptySet()): Session {
+    /**
+     * Opens a session for [connection], or the local shell when null. A session opened in the
+     * [background], with no screen to show it, starts at once at a standard size; otherwise it
+     * starts when the view sizes it, so the shell's first prompt is drawn at the right width.
+     */
+    fun open(context: Context, connection: Connection?, forwards: Set<String> = emptySet(), background: Boolean = forwards.isNotEmpty()): Session {
         appContext = context.applicationContext
         val vault = Store.vault.value
         val type = connection?.type ?: ConnectionType.LOCAL
@@ -129,8 +133,7 @@ object Sessions {
         state.update { it + session }
         // The emulator takes its colours from the shared scheme when it's made.
         TerminalThemes.apply(TerminalThemes.named(connection?.theme ?: Settings.value.theme))
-        // Start now at a standard size, so connecting doesn't wait for a view. The view resizes it.
-        session.terminal.updateSize(80, 24, 1, 1)
+        if (background) session.terminal.updateSize(80, 24, 1, 1)
         SessionService.update(appContext)
         return session
     }

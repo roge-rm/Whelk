@@ -73,6 +73,11 @@ public interface TerminalViewClient {
         return false;
     }
 
+    /** A sideways fling, towards the right if [right]. Return true if used. Whelk addition. */
+    default boolean onSideFling(boolean right) {
+        return false;
+    }
+
 
     void logError(String tag, String message);
 

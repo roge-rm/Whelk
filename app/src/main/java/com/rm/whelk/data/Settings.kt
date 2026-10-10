@@ -12,6 +12,13 @@ enum class VolumeKeys(val label: String) {
     OFF("Volume"),
 }
 
+enum class Swipe(val label: String, val prefix: String, val next: String, val previous: String) {
+    OFF("Nothing", "", "", ""),
+    TMUX("tmux windows", "\u0002", "n", "p"),
+    SCREEN("screen windows", "\u0001", "n", "p"),
+    SESSIONS("Whelk sessions", "", "", ""),
+}
+
 /** This device's own settings. They aren't synced. */
 data class Prefs(
     /** Terminal text size in sp. */
@@ -29,6 +36,8 @@ data class Prefs(
     val terminalType: String = "xterm-256color",
     /** Turn curly quotes and long dashes into plain ones when pasting. */
     val straightenPaste: Boolean = true,
+    /** What a sideways swipe on the terminal does. */
+    val swipe: Swipe = Swipe.SESSIONS,
 )
 
 object Settings {
@@ -53,6 +62,7 @@ object Settings {
             scrollback = prefs.getInt("scrollback", d.scrollback),
             terminalType = prefs.getString("terminalType", d.terminalType) ?: d.terminalType,
             straightenPaste = prefs.getBoolean("straightenPaste", d.straightenPaste),
+            swipe = runCatching { Swipe.valueOf(prefs.getString("swipe", null)!!) }.getOrDefault(d.swipe),
         )
     }
 
@@ -72,6 +82,7 @@ object Settings {
             .putInt("scrollback", p.scrollback)
             .putString("terminalType", p.terminalType)
             .putBoolean("straightenPaste", p.straightenPaste)
+            .putString("swipe", p.swipe.name)
             .apply()
     }
 }
