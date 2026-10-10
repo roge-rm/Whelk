@@ -118,7 +118,8 @@ object Sessions {
         val session = Session(nextId++, connection, title)
         val rows = Settings.value.scrollback
         session.terminal = when (type) {
-            ConnectionType.SSH, ConnectionType.MOSH -> SshTerminal(session, rows, client)
+            ConnectionType.SSH -> SshTerminal(session, rows, client)
+            ConnectionType.MOSH -> MoshStarter.terminal(appContext, session, rows, client)
             ConnectionType.TELNET -> TelnetTerminal(session, rows, client)
             ConnectionType.LOCAL -> localShell(appContext, rows)
         }

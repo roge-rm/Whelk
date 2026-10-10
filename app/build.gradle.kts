@@ -13,6 +13,11 @@ val signingProperties: Properties? = rootProject.file("../Keys/whelk-keystore.pr
     ?.let { f -> Properties().apply { f.inputStream().use { load(it) } } }
 val releaseStoreFile = signingProperties?.getProperty("storeFile")
 
+// mosh-client for each ABI, built from source by tools/mosh/build.sh into
+// build/native/jniLibs at the top of the project, and kept there between builds.
+val moshAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+val moshOut: Provider<Directory> = rootProject.layout.buildDirectory.dir("native/jniLibs")
+
 android {
     namespace = "com.rm.whelk"
     compileSdk {
@@ -54,6 +59,12 @@ android {
             }
         }
     }
+    ndkVersion = "28.2.13676358"
+    sourceSets {
+        getByName("main") {
+            jniLibs.directories.add(moshOut.get().asFile.absolutePath)
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -62,6 +73,10 @@ android {
         compose = true
     }
     packaging {
+        // mosh-client runs as a program, so it has to be unpacked to the native library folder.
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             excludes += listOf("META-INF/versions/9/OSGI-INF/MANIFEST.MF", "META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*")
         }
@@ -84,3 +99,20 @@ dependencies {
     implementation(libs.compose.material.icons)
     implementation(libs.kotlinx.coroutines.android)
 }
+
+val ndkPath: Provider<String> = androidComponents.sdkComponents.ndkDirectory.map { it.asFile.absolutePath }
+val moshTasks = moshAbis.map { abi ->
+    tasks.register<Exec>("buildMosh-$abi") {
+        group = "build"
+        description = "Builds mosh-client for $abi"
+        val script = rootProject.file("tools/mosh/build.sh")
+        val out = moshOut
+        val ndk = ndkPath
+        inputs.file(script)
+        outputs.file(out.map { it.file("$abi/libmosh-client.so") })
+        executable(script.absolutePath)
+        environment("MOSH_JOBS", "10")
+        argumentProviders.add(CommandLineArgumentProvider { listOf(abi, ndk.get(), out.get().asFile.absolutePath) })
+    }
+}
+tasks.named("preBuild") { dependsOn(moshTasks) }

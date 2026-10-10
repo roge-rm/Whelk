@@ -11,13 +11,41 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 
-/** A session running a local process on a pseudo-terminal. */
+/**
+ * A session running a local process on a pseudo-terminal. With a {@link Preparer}, something slow
+ * runs first on a background thread and decides what to run, as Mosh logs in over SSH before
+ * starting its client.
+ */
 public final class ProcessSession extends TerminalSession {
 
-    private final String mShellPath;
-    private final String mCwd;
-    private final String[] mArgs;
-    private final String[] mEnv;
+    /** What to run. */
+    public static final class Command {
+        public final String path;
+        public final String cwd;
+        public final String[] args;
+        public final String[] env;
+
+        public Command(String path, String cwd, String[] args, String[] env) {
+            this.path = path;
+            this.cwd = cwd;
+            this.args = args;
+            this.env = env;
+        }
+    }
+
+    /** Works out the command on a background thread. Throwing ends the session with the message. */
+    public interface Preparer {
+        Command prepare(ProcessSession session, int columns, int rows) throws Exception;
+
+        /** The session was closed while preparing. */
+        void cancel();
+    }
+
+    private final Command mCommand;
+    private final Preparer mPreparer;
+    private volatile boolean mCancelled;
+    private volatile boolean mPreparing;
+    private volatile int mColumns, mRows, mCellWidth, mCellHeight;
 
     /** The pid of the shell process. 0 if not started and -1 if finished running. */
     private int mShellPid;
@@ -27,16 +55,58 @@ public final class ProcessSession extends TerminalSession {
 
     public ProcessSession(String shellPath, String cwd, String[] args, String[] env, Integer transcriptRows, TerminalSessionClient client) {
         super(transcriptRows, client);
-        this.mShellPath = shellPath;
-        this.mCwd = cwd;
-        this.mArgs = args;
-        this.mEnv = env;
+        this.mCommand = new Command(shellPath, cwd, args, env);
+        this.mPreparer = null;
+    }
+
+    public ProcessSession(Preparer preparer, Integer transcriptRows, TerminalSessionClient client) {
+        super(transcriptRows, client);
+        this.mCommand = null;
+        this.mPreparer = preparer;
+    }
+
+    /** Shows progress text while preparing. */
+    public void progress(String text) {
+        feed(text);
     }
 
     @Override
     protected void onStart(int columns, int rows, int cellWidthPixels, int cellHeightPixels) {
+        mColumns = columns;
+        mRows = rows;
+        mCellWidth = cellWidthPixels;
+        mCellHeight = cellHeightPixels;
+        if (mPreparer == null) {
+            spawn(mCommand);
+            return;
+        }
+        mPreparing = true;
+        new Thread("ProcessSessionPrepare") {
+            @Override
+            public void run() {
+                Command command;
+                try {
+                    command = mPreparer.prepare(ProcessSession.this, columns, rows);
+                } catch (Exception e) {
+                    String m = e.getMessage();
+                    finished(mCancelled ? "\r\n[Disconnected]" : "\r\n[" + (m == null ? e.getClass().getSimpleName() : m) + "]");
+                    return;
+                }
+                synchronized (ProcessSession.this) {
+                    if (mCancelled) {
+                        finished("\r\n[Disconnected]");
+                        return;
+                    }
+                    spawn(command);
+                }
+            }
+        }.start();
+    }
+
+    private void spawn(Command command) {
         int[] processId = new int[1];
-        mTerminalFileDescriptor = JNI.createSubprocess(mShellPath, mCwd, mArgs, mEnv, processId, rows, columns, cellWidthPixels, cellHeightPixels);
+        // The size the view has now, which may have changed while preparing.
+        mTerminalFileDescriptor = JNI.createSubprocess(command.path, command.cwd, command.args, command.env, processId, mRows, mColumns, mCellWidth, mCellHeight);
         mShellPid = processId[0];
 
         final FileDescriptor terminalFileDescriptorWrapped = wrapFileDescriptor(mTerminalFileDescriptor, mClient);
@@ -94,8 +164,12 @@ public final class ProcessSession extends TerminalSession {
     }
 
     @Override
-    protected void onResize(int columns, int rows, int cellWidthPixels, int cellHeightPixels) {
-        JNI.setPtyWindowSize(mTerminalFileDescriptor, rows, columns, cellWidthPixels, cellHeightPixels);
+    protected synchronized void onResize(int columns, int rows, int cellWidthPixels, int cellHeightPixels) {
+        mColumns = columns;
+        mRows = rows;
+        mCellWidth = cellWidthPixels;
+        mCellHeight = cellHeightPixels;
+        if (mShellPid > 0) JNI.setPtyWindowSize(mTerminalFileDescriptor, rows, columns, cellWidthPixels, cellHeightPixels);
     }
 
     /** Sends SIGKILL to the shell. */
@@ -108,7 +182,9 @@ public final class ProcessSession extends TerminalSession {
                 Logger.logWarn(mClient, LOG_TAG, "Failed sending SIGKILL: " + e.getMessage());
             }
         } else if (mShellPid == 0) {
-            finished(null);
+            mCancelled = true;
+            if (mPreparing) mPreparer.cancel();
+            else finished(null);
         }
     }
 

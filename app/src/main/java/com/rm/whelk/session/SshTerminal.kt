@@ -1,8 +1,6 @@
 package com.rm.whelk.session
 
-import com.rm.whelk.core.HostKeyCheck
 import com.rm.whelk.core.SshConnection
-import com.rm.whelk.core.SshPrompter
 import com.rm.whelk.core.SshTarget
 import com.rm.whelk.data.Settings
 import com.rm.whelk.data.Store
@@ -27,7 +25,7 @@ class SshTerminal(
         val conn = session.connection ?: throw IllegalStateException("No connection")
         val target = SshTarget.from(vault, conn) ?: throw IllegalStateException("The jump hosts go round in a loop")
         if (target.host.isEmpty()) throw IllegalStateException("No host name")
-        val c = SshConnection(target, Prompter(), Store.hostKeys)
+        val c = SshConnection(target, SessionPrompter(session.id) { feed(it) }, Store.hostKeys)
         connection = c
         if (stopped) throw IllegalStateException("Cancelled")
         c.connect()
@@ -69,26 +67,5 @@ class SshTerminal(
     override fun closedMessage(error: Exception?): String {
         if (stopped) return "\r\n[Disconnected]"
         return super.closedMessage(error)
-    }
-
-    private inner class Prompter : SshPrompter {
-        override fun trustHostKey(check: HostKeyCheck): Boolean =
-            Prompts.ask(Ask.HostKey(session.id, check)) == "yes"
-
-        override fun username(target: SshTarget): String? =
-            Prompts.ask(Ask.Text(session.id, target.host, "Log in as", "Username", secret = false))
-
-        override fun password(target: SshTarget): String? =
-            Prompts.ask(Ask.Text(session.id, target.label, "", "Password", secret = true))
-
-        override fun passphrase(target: SshTarget): String? =
-            Prompts.ask(Ask.Text(session.id, target.label, "The private key is locked", "Passphrase", secret = true))
-
-        override fun challenge(target: SshTarget, instruction: String, prompt: String, echo: Boolean): String? =
-            Prompts.ask(Ask.Text(session.id, target.label, instruction, prompt.trim().trimEnd(':'), secret = !echo))
-
-        override fun progress(text: String) {
-            feed("\u001b[2K\r$text")
-        }
     }
 }

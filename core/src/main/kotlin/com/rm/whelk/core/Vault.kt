@@ -95,6 +95,8 @@ data class Connection(
     val compression: Boolean = false,
     /** Colour scheme name, or null for the app's own setting. */
     val theme: String? = null,
+    /** The mosh-server command, when it isn't on the server's path or needs options. */
+    val moshServer: String? = null,
     val lastUsed: Long = 0,
     override val updated: Long = now(),
     override val deleted: Boolean = false,
