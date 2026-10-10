@@ -14,10 +14,11 @@ object Fonts {
     const val CUSTOM = "My font"
 
     private val bundled = linkedMapOf(
-        "JetBrains Mono" to "fonts/jetbrains-mono.ttf",
         "Fira Mono" to "fonts/fira-mono.otf",
+        "JetBrains Mono" to "fonts/jetbrains-mono.ttf",
         "Hack" to "fonts/hack.ttf",
-        "Ubuntu Mono" to "fonts/ubuntu-mono.ttf",
+        // The Nerd Font build of Cascadia Code, renamed as its licence reserves the name.
+        "Caskaydia Cove" to "fonts/caskaydia-cove.ttf",
     )
 
     private val cache = HashMap<String, Typeface>()
