@@ -157,3 +157,29 @@ fun Section(text: String) {
         modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
     )
 }
+
+/**
+ * A password field that never shows a saved one. With one saved and nothing typed it says so, and
+ * Remove clears it; typing replaces it, and only what's typed can be shown.
+ */
+@Composable
+fun SecretField(label: String, value: String, onChange: (String) -> Unit, saved: Boolean, onRemove: () -> Unit) {
+    var show by remember { mutableStateOf(false) }
+    val holdingSaved = saved && value.isEmpty()
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(if (holdingSaved) "$label, saved" else label) },
+        placeholder = if (holdingSaved) { { Text("Type to change") } } else null,
+        singleLine = true,
+        visualTransformation = if (show && !holdingSaved) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+        trailingIcon = {
+            when {
+                holdingSaved -> TextButton(onClick = onRemove) { Text("Remove") }
+                value.isNotEmpty() -> TextButton(onClick = { show = !show }) { Text(if (show) "Hide" else "Show") }
+            }
+        },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+    )
+}

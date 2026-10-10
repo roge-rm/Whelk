@@ -86,7 +86,8 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var backspace by remember { mutableStateOf(original.backspace) }
     var envText by remember { mutableStateOf(original.env.entries.joinToString("\n") { "${it.key}=${it.value}" }) }
     var tmux by remember { mutableStateOf(original.tmux.orEmpty()) }
-    var proxy by remember { mutableStateOf(original.proxy) }
+    var proxy by remember { mutableStateOf(original.proxy.copy(password = "")) }
+    var proxyPasswordSaved by remember { mutableStateOf(original.proxy.password.isNotEmpty()) }
     var watchText by remember { mutableStateOf(original.watch.joinToString(", ")) }
     var device by remember { mutableStateOf(original.device) }
     var deviceName by remember { mutableStateOf(original.deviceName) }
@@ -135,7 +136,9 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
                 if (i <= 0) null else l.substring(0, i).trim() to l.substring(i + 1)
             }.filter { it.first.isNotEmpty() }.toMap(),
             tmux = tmux.trim().ifEmpty { null }.takeIf { type == ConnectionType.SSH || type == ConnectionType.MOSH },
-            proxy = if (type == ConnectionType.SSH || type == ConnectionType.MOSH) proxy else com.rm.whelk.core.ProxySettings(),
+            proxy = if (type == ConnectionType.SSH || type == ConnectionType.MOSH) {
+                proxy.copy(password = proxy.password.ifEmpty { if (proxyPasswordSaved) original.proxy.password else "" })
+            } else com.rm.whelk.core.ProxySettings(),
             watch = watchText.split(',').map { it.trim() }.filter { it.isNotEmpty() },
             device = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) device else "",
             deviceName = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) deviceName else "",
@@ -225,7 +228,9 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
                 Field("Proxy host", proxy.host, { proxy = proxy.copy(host = it.trim()) })
                 Field("Proxy port", proxy.port.toString(), { t -> proxy = proxy.copy(port = t.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 65535) ?: proxy.port) }, number = true)
                 Field("Proxy username", proxy.username, { proxy = proxy.copy(username = it) })
-                if (proxy.type != com.rm.whelk.core.ProxyType.SOCKS4) Field("Proxy password", proxy.password, { proxy = proxy.copy(password = it) }, secret = true)
+                if (proxy.type != com.rm.whelk.core.ProxyType.SOCKS4) {
+                    SecretField("Proxy password", proxy.password, { proxy = proxy.copy(password = it) }, saved = proxyPasswordSaved, onRemove = { proxyPasswordSaved = false })
+                }
             }
             if (type == ConnectionType.MOSH) Field("Mosh server command", moshServer, { moshServer = it }, monospace = true)
         }
@@ -246,10 +251,16 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
     val original = remember { vault.identity(id) ?: Identity() }
     var name by remember { mutableStateOf(original.name) }
     var username by remember { mutableStateOf(original.username) }
-    var password by remember { mutableStateOf(original.password.orEmpty()) }
+    // Saved secrets never go back into a field: it starts empty, and typing replaces the saved one.
+    var password by remember { mutableStateOf("") }
+    var passwordSaved by remember { mutableStateOf(original.password != null) }
     var privateKey by remember { mutableStateOf(original.privateKey.orEmpty()) }
     var publicKey by remember { mutableStateOf(original.publicKey.orEmpty()) }
-    var passphrase by remember { mutableStateOf(original.passphrase.orEmpty()) }
+    var passphrase by remember { mutableStateOf("") }
+    var passphraseSaved by remember { mutableStateOf(original.passphrase != null) }
+
+    /** The passphrase to use: what was typed, or the saved one. */
+    fun keyPassphrase(): String? = passphrase.ifEmpty { if (passphraseSaved) original.passphrase else null }
     var certificate by remember { mutableStateOf(original.certificate.orEmpty()) }
     var pastingCert by remember { mutableStateOf(false) }
     var makingSk by remember { mutableStateOf(false) }
@@ -265,11 +276,11 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
     fun takeKey(text: String) {
         val key = text.trim() + "\n"
         try {
-            publicKey = Keys.publicLineFor(key, passphrase.ifEmpty { null }, comment())
+            publicKey = Keys.publicLineFor(key, keyPassphrase(), comment())
             privateKey = key
             keyError = null
         } catch (e: Exception) {
-            if (Keys.isEncrypted(key) && passphrase.isEmpty()) {
+            if (Keys.isEncrypted(key) && keyPassphrase() == null) {
                 privateKey = key
                 publicKey = ""
                 keyError = "Enter the key's passphrase below"
@@ -298,9 +309,9 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         if (privateKey.isNotBlank() && publicKey.isBlank()) {
             // Check the passphrase now rather than at connect time.
             try {
-                publicKey = Keys.publicLineFor(privateKey, passphrase.ifEmpty { null }, comment())
+                publicKey = Keys.publicLineFor(privateKey, keyPassphrase(), comment())
             } catch (e: Exception) {
-                if (passphrase.isNotEmpty()) {
+                if (keyPassphrase() != null) {
                     keyError = "Wrong passphrase"
                     return
                 }
@@ -309,10 +320,10 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         val i = original.copy(
             name = name.trim(),
             username = username.trim(),
-            password = password.ifEmpty { null },
+            password = password.ifEmpty { if (passwordSaved) original.password else null },
             privateKey = privateKey.ifBlank { null },
             publicKey = publicKey.ifBlank { null },
-            passphrase = passphrase.ifEmpty { null },
+            passphrase = keyPassphrase().takeIf { privateKey.isNotBlank() },
             certificate = certificate.trim().ifEmpty { null }.takeIf { privateKey.isNotBlank() },
             updated = now(),
         )
@@ -328,7 +339,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
     ) {
         Field("Nickname", name, { name = it })
         Field("Username", username, { username = it })
-        Field("Password", password, { password = it }, secret = true)
+        SecretField("Password", password, { password = it }, saved = passwordSaved, onRemove = { passwordSaved = false })
 
         Section("Private key")
         if (privateKey.isNotBlank()) {
@@ -338,7 +349,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
                 modifier = Modifier.padding(vertical = 4.dp),
             )
-            Field("Key passphrase", passphrase, { passphrase = it; keyError = null }, secret = true)
+            SecretField("Key passphrase", passphrase, { passphrase = it; keyError = null }, saved = passphraseSaved, onRemove = { passphraseSaved = false })
         }
         keyError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 4.dp)) }
         if (generating) {
@@ -360,7 +371,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                 }) { Text("Share public key") }
             }
             if (privateKey.isNotBlank()) {
-                OutlinedButton(onClick = { privateKey = ""; publicKey = ""; passphrase = ""; certificate = ""; keyError = null }) { Text("Remove key") }
+                OutlinedButton(onClick = { privateKey = ""; publicKey = ""; passphrase = ""; passphraseSaved = false; certificate = ""; keyError = null }) { Text("Remove key") }
             }
         }
 
@@ -411,6 +422,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                             privateKey = it.privateKey
                             publicKey = it.publicKey
                             passphrase = ""
+                            passphraseSaved = false
                             certificate = ""
                             keyError = null
                         }.onFailure { if (it.message != "Cancelled") keyError = it.message ?: "That didn't work" }
@@ -454,6 +466,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                                     privateKey = it.privateKey
                                     publicKey = it.publicKey
                                     passphrase = ""
+                                    passphraseSaved = false
                                     keyError = null
                                 }.onFailure { keyError = it.message }
                             }
