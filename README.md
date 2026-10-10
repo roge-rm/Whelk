@@ -63,10 +63,10 @@ Dan
 ### Your setup
 
 - Everything is kept encrypted on the phone, and the app can lock with your fingerprint or PIN
-- Encrypted backups, and sync through a folder you pick (Syncthing, Nextcloud and so on), with no account or server of mine
-- Share a group of connections with other people through its own file
+- Encrypted backups, and sync through a folder you pick (Syncthing, Nextcloud, etc)
+- Share a group of connections with other people through a file export
 - Bring in your `~/.ssh/config`, `known_hosts` or PuTTY sessions
-- A light or dark app, or colours from your wallpaper
+- Customizable theme
 
 ## Keyboard shortcuts
 
