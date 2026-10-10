@@ -13,6 +13,13 @@ sealed class Ask {
 
     data class HostKey(override val sessionId: Int, val check: HostKeyCheck) : Ask()
 
+    data class Confirm(
+        override val sessionId: Int,
+        val title: String,
+        val message: String,
+        val yes: String,
+    ) : Ask()
+
     data class Text(
         override val sessionId: Int,
         val title: String,

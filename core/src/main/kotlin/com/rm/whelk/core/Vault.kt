@@ -132,6 +132,8 @@ data class Connection(
     /** Seconds between keepalives, 0 for none. */
     val keepAlive: Int = 30,
     val compression: Boolean = false,
+    /** Let the server use this phone's keys, for git or going on to other servers. */
+    val forwardAgent: Boolean = false,
     /** Colour scheme name, or null for the app's own setting. */
     val theme: String? = null,
     /** The mosh-server command, when it isn't on the server's path or needs options. */
@@ -171,6 +173,8 @@ data class Identity(
     /** The OpenSSH public key line, kept so it can be copied to servers. */
     val publicKey: String? = null,
     val passphrase: String? = null,
+    /** An OpenSSH certificate for the key, the line from its -cert.pub file. */
+    val certificate: String? = null,
     override val updated: Long = now(),
     override val deleted: Boolean = false,
 ) : Item {

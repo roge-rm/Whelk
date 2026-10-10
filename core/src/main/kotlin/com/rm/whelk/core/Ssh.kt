@@ -1,6 +1,9 @@
 package com.rm.whelk.core
 
+import com.hierynomus.sshj.key.KeyAlgorithms
 import net.schmizz.sshj.Config
+import net.schmizz.sshj.common.KeyType
+import net.schmizz.sshj.signature.SignatureRSA
 import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.connection.channel.direct.Parameters
@@ -34,6 +37,7 @@ data class SshTarget(
     val password: String? = null,
     val privateKey: String? = null,
     val passphrase: String? = null,
+    val certificate: String? = null,
     val keepAlive: Int = 30,
     val compression: Boolean = false,
     /** A jump host to connect through first. */
@@ -54,6 +58,7 @@ data class SshTarget(
                 password = identity?.password,
                 privateKey = identity?.privateKey,
                 passphrase = identity?.passphrase,
+                certificate = identity?.certificate,
                 keepAlive = connection.keepAlive,
                 compression = connection.compression,
                 via = via,
@@ -102,7 +107,10 @@ class SshConnection(
     private val target: SshTarget,
     private val prompter: SshPrompter,
     private val hostKeys: HostKeyStore,
+    /** Keys to offer through agent forwarding, or null for none. */
+    private val agent: AgentKeys? = null,
 ) : Closeable {
+    private var agentAttached = false
     private val clients = mutableListOf<SSHClient>()
     private val forwards = mutableListOf<Closeable>()
     @Volatile private var closed = false
@@ -147,7 +155,7 @@ class SshConnection(
             if (passphrase == null && Keys.isEncrypted(target.privateKey)) {
                 passphrase = prompter.passphrase(target) ?: throw CancelledException()
             }
-            methods += AuthPublickey(Keys.provider(target.privateKey, passphrase))
+            methods += AuthPublickey(Keys.provider(target.privateKey, passphrase, target.certificate))
         }
         val password = PasswordOnce(target)
         methods += AuthKeyboardInteractive(Challenges(target, password))
@@ -238,12 +246,25 @@ class SshConnection(
     fun openShell(term: String, columns: Int, rows: Int): Pair<Session, Session.Shell> {
         val session = client.startSession()
         session.allocatePTY(term, columns, rows, 0, 0, emptyMap())
+        requestAgent(session)
         return session to session.startShell()
+    }
+
+    private fun requestAgent(session: Session) {
+        val keys = agent ?: return
+        synchronized(this) {
+            if (!agentAttached) {
+                client.connection.attach(AgentForwarder(client.connection, keys))
+                agentAttached = true
+            }
+        }
+        AgentForwarder.request(session)
     }
 
     /** Runs a command and returns what it printed, standard output then standard error. */
     fun exec(command: String): String {
         client.startSession().use { s ->
+            requestAgent(s)
             val cmd = s.exec(command)
             val out = cmd.inputStream.readBytes().toString(Charsets.UTF_8)
             val err = cmd.errorStream.readBytes().toString(Charsets.UTF_8)
@@ -310,9 +331,10 @@ class SshConnection(
         private val PASSWORD_PROMPT = Regex("(?is).*password.*:\\s*")
 
         // sshj's configurations, made once each as building one is slow.
-        private val plain: DefaultConfig by lazy { DefaultConfig() }
+        private val plain: DefaultConfig by lazy { DefaultConfig().apply { addRsaCertificates() } }
         private val compressed: DefaultConfig by lazy {
             DefaultConfig().apply {
+                addRsaCertificates()
                 compressionFactories = listOf(
                     DelayedZlibCompression.Factory(),
                     ZlibCompression.Factory(),
@@ -322,5 +344,16 @@ class SshConnection(
         }
 
         fun config(compression: Boolean): Config = if (compression) compressed else plain
+
+        /**
+         * sshj only signs RSA certificates with SHA-1, which OpenSSH has refused since 8.8. These
+         * sign them with SHA-2 and come first.
+         */
+        private fun DefaultConfig.addRsaCertificates() {
+            keyAlgorithms = listOf(
+                KeyAlgorithms.Factory("rsa-sha2-512-cert-v01@openssh.com", SignatureRSA.FactoryRSASHA512(), KeyType.RSA_CERT),
+                KeyAlgorithms.Factory("rsa-sha2-256-cert-v01@openssh.com", SignatureRSA.FactoryRSASHA256(), KeyType.RSA_CERT),
+            ) + keyAlgorithms
+        }
     }
 }

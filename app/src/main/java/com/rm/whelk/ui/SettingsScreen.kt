@@ -39,6 +39,8 @@ fun SettingsScreen(nav: Nav) {
             }
         }
 
+        SwitchRow("Ask before a server uses my keys", p.askBeforeAgent) { v -> Settings.update { it.copy(askBeforeAgent = v) } }
+
         Section("Terminal")
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Text size", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)

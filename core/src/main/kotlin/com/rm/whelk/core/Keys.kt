@@ -129,8 +129,11 @@ object Keys {
         return false
     }
 
-    /** A key provider for sshj. The passphrase is asked for only if the key needs one. */
-    fun provider(privateKey: String, passphrase: String?): KeyProvider {
+    /**
+     * A key provider for sshj. The passphrase is only used if the key needs one. With a
+     * [certificate], logging in offers the certificate in place of the bare public key.
+     */
+    fun provider(privateKey: String, passphrase: String?, certificate: String? = null): KeyProvider {
         val format = KeyProviderUtil.detectKeyFileFormat(privateKey, false)
         val fkp: FileKeyProvider = Factory.Named.Util.create(config.fileKeyProviderFactories, format.toString())
             ?: throw IllegalArgumentException("Not a key Whelk can read")
@@ -139,8 +142,16 @@ object Keys {
                 passphrase?.toCharArray() ?: throw IllegalArgumentException("The key needs its passphrase")
             override fun shouldRetry(resource: Resource<*>?) = false
         }
-        fkp.init(privateKey, null, finder)
+        fkp.init(privateKey, certificate?.trim()?.ifEmpty { null }, finder)
         return fkp
+    }
+
+    /** A key for the forwarded agent, or null if it can't be read without asking for a passphrase. */
+    fun agentKey(privateKey: String, passphrase: String?, certificate: String?, comment: String): AgentKey? = try {
+        val p = provider(privateKey, passphrase, certificate)
+        AgentKey(blob(p.public), comment, p.private, p.public)
+    } catch (e: Exception) {
+        null
     }
 
     /** The public key blob in SSH wire format. */

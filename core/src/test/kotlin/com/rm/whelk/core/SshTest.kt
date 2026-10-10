@@ -32,7 +32,9 @@ class SshTest {
         server.port = 0
         server.keyPairProvider = SimpleGeneratorHostKeyProvider().apply { algorithm = "EC" }
         server.passwordAuthenticator = PasswordAuthenticator { user, pw, _ -> user == "dan" && pw == "pw" }
-        server.publickeyAuthenticator = PublickeyAuthenticator { user, k, _ -> user == "dan" && Keys.blob(k).contentEquals(keyBlob) }
+        server.publickeyAuthenticator = PublickeyAuthenticator { user, k, _ ->
+            user == "dan" && Keys.blob(k).contentEquals(keyBlob)
+        }
         server.forwardingFilter = AcceptAllForwardingFilter.INSTANCE
         server.commandFactory = ProcessShellCommandFactory.INSTANCE
         server.subsystemFactories = listOf(org.apache.sshd.sftp.server.SftpSubsystemFactory())
@@ -153,6 +155,26 @@ class SshTest {
         SshConnection(target(privateKey = key.privateKey), Prompter(), Store()).use { c ->
             c.connect()
             assertEquals("ok\n", c.exec("echo ok"))
+        }
+    }
+
+    @Test
+    fun certificateIsSentAsIs() {
+        if (!java.io.File("/usr/bin/ssh-keygen").canExecute()) return
+        val dir = kotlin.io.path.createTempDirectory("whelk-cert").toFile()
+        try {
+            val user = Keys.generate(KeyKind.ED25519, "")
+            java.io.File(dir, "user.pub").writeText(user.publicKey + "\n")
+            OpenSshTest.keygen(dir, "-q", "-t", "ed25519", "-N", "", "-f", "ca")
+            OpenSshTest.keygen(dir, "-q", "-s", "ca", "-I", "test", "-n", "dan", "user.pub")
+            val cert = java.io.File(dir, "user-cert.pub").readText()
+            // sshj's encoding of the certificate should be the file's, byte for byte. Logging in
+            // with one is tested against real OpenSSH in OpenSshTest, as MINA can't check them.
+            val fileBlob = Base64.getDecoder().decode(cert.trim().split(" ")[1])
+            val sshjBlob = Keys.blob(Keys.provider(user.privateKey, null, cert).public)
+            assertEquals(Base64.getEncoder().encodeToString(fileBlob), Base64.getEncoder().encodeToString(sshjBlob))
+        } finally {
+            dir.deleteRecursively()
         }
     }
 

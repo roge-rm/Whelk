@@ -38,6 +38,8 @@ data class Prefs(
     val straightenPaste: Boolean = true,
     /** What a sideways swipe on the terminal does. */
     val swipe: Swipe = Swipe.SESSIONS,
+    /** Ask each time a server wants to sign with a key through agent forwarding. */
+    val askBeforeAgent: Boolean = true,
 )
 
 object Settings {
@@ -63,6 +65,7 @@ object Settings {
             terminalType = prefs.getString("terminalType", d.terminalType) ?: d.terminalType,
             straightenPaste = prefs.getBoolean("straightenPaste", d.straightenPaste),
             swipe = runCatching { Swipe.valueOf(prefs.getString("swipe", null)!!) }.getOrDefault(d.swipe),
+            askBeforeAgent = prefs.getBoolean("askBeforeAgent", d.askBeforeAgent),
         )
     }
 
@@ -83,6 +86,7 @@ object Settings {
             .putString("terminalType", p.terminalType)
             .putBoolean("straightenPaste", p.straightenPaste)
             .putString("swipe", p.swipe.name)
+            .putBoolean("askBeforeAgent", p.askBeforeAgent)
             .apply()
     }
 }

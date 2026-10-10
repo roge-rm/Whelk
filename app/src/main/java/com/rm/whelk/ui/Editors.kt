@@ -74,6 +74,7 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var keepAlive by remember { mutableStateOf(original.keepAlive.toString()) }
     var compression by remember { mutableStateOf(original.compression) }
     var theme by remember { mutableStateOf(original.theme) }
+    var forwardAgent by remember { mutableStateOf(original.forwardAgent) }
     var moshServer by remember { mutableStateOf(original.moshServer.orEmpty()) }
     var line by remember { mutableStateOf(original.line) }
     var device by remember { mutableStateOf(original.device) }
@@ -113,6 +114,7 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             keepAlive = keepAlive.trim().toIntOrNull()?.coerceIn(0, 3600) ?: 30,
             compression = compression,
             theme = theme,
+            forwardAgent = forwardAgent && type == ConnectionType.SSH,
             moshServer = moshServer.trim().ifEmpty { null },
             line = line,
             device = if (type == ConnectionType.SERIAL || type == ConnectionType.BLUETOOTH) device else "",
@@ -190,6 +192,7 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             Section("Advanced")
             Field("Keepalive seconds (0 for off)", keepAlive, { keepAlive = it.filter(Char::isDigit) }, number = true)
             SwitchRow("Compression", compression) { compression = it }
+            if (type == ConnectionType.SSH) SwitchRow("Forward agent", forwardAgent) { forwardAgent = it }
             if (type == ConnectionType.MOSH) Field("Mosh server command", moshServer, { moshServer = it }, monospace = true)
         }
     }
@@ -213,6 +216,8 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
     var privateKey by remember { mutableStateOf(original.privateKey.orEmpty()) }
     var publicKey by remember { mutableStateOf(original.publicKey.orEmpty()) }
     var passphrase by remember { mutableStateOf(original.passphrase.orEmpty()) }
+    var certificate by remember { mutableStateOf(original.certificate.orEmpty()) }
+    var pastingCert by remember { mutableStateOf(false) }
     var keyError by remember { mutableStateOf<String?>(null) }
     var generating by remember { mutableStateOf(false) }
     var chooseKind by remember { mutableStateOf(false) }
@@ -246,6 +251,14 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         }
     }
 
+    val importCert = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val text = runCatching { context.contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+            if (text == null || text.length > 64_000) keyError = "Can't read that file"
+            else takeCertificate(text)?.let { keyError = it } ?: run { certificate = text.trim(); keyError = null }
+        }
+    }
+
     fun save() {
         if (privateKey.isNotBlank() && publicKey.isBlank()) {
             // Check the passphrase now rather than at connect time.
@@ -265,6 +278,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
             privateKey = privateKey.ifBlank { null },
             publicKey = publicKey.ifBlank { null },
             passphrase = passphrase.ifEmpty { null },
+            certificate = certificate.trim().ifEmpty { null }.takeIf { privateKey.isNotBlank() },
             updated = now(),
         )
         Store.update { it.put(i) }
@@ -310,9 +324,41 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                 }) { Text("Share public key") }
             }
             if (privateKey.isNotBlank()) {
-                OutlinedButton(onClick = { privateKey = ""; publicKey = ""; passphrase = ""; keyError = null }) { Text("Remove key") }
+                OutlinedButton(onClick = { privateKey = ""; publicKey = ""; passphrase = ""; certificate = ""; keyError = null }) { Text("Remove key") }
             }
         }
+
+        if (privateKey.isNotBlank()) {
+            Section("Certificate")
+            if (certificate.isNotBlank()) {
+                Text(
+                    certificate.trim().substringBefore(' '),
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { importCert.launch(arrayOf("*/*")) }) { Text(if (certificate.isBlank()) "Import file" else "Replace") }
+                OutlinedButton(onClick = { pastingCert = true }) { Text("Paste") }
+                if (certificate.isNotBlank()) OutlinedButton(onClick = { certificate = "" }) { Text("Remove") }
+            }
+        }
+    }
+
+    if (pastingCert) {
+        var text by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { pastingCert = false },
+            title = { Text("Certificate") },
+            text = { Field("The line from the -cert.pub file", text, { text = it }, singleLine = false, minLines = 4, monospace = true) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pastingCert = false
+                    takeCertificate(text)?.let { keyError = it } ?: run { certificate = text.trim() }
+                }) { Text("Use") }
+            },
+            dismissButton = { TextButton(onClick = { pastingCert = false }) { Text("Cancel") } },
+        )
     }
 
     if (chooseKind) {
@@ -565,4 +611,16 @@ private fun LineEditor(type: ConnectionType, line: LineSettings, onChange: (Line
     }
     Choice("Enter sends", line.enter, EnterSends.values().toList(), { it.label }) { onChange(line.copy(enter = it)) }
     SwitchRow("Show what I type", line.localEcho) { onChange(line.copy(localEcho = it)) }
+}
+
+/** Checks a certificate line, returning a reason it won't do, or null if it's fine. */
+private fun takeCertificate(text: String): String? {
+    val parts = text.trim().split(Regex("\\s+"))
+    if (parts.size < 2 || !parts[0].contains("-cert-v01@openssh.com")) return "That isn't an OpenSSH certificate"
+    return try {
+        java.util.Base64.getDecoder().decode(parts[1])
+        null
+    } catch (e: IllegalArgumentException) {
+        "That isn't an OpenSSH certificate"
+    }
 }

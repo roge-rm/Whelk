@@ -28,3 +28,9 @@ dependencies {
     testImplementation(libs.sshd.core)
     testImplementation(libs.sshd.sftp)
 }
+
+// OpenSshTest runs against the test server when this is set, like 127.0.0.1:2222.
+tasks.test {
+    System.getenv("WHELK_OPENSSH")?.let { environment("WHELK_OPENSSH", it) }
+    inputs.property("openssh", System.getenv("WHELK_OPENSSH") ?: "")
+}

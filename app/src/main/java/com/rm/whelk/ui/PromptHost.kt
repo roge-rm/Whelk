@@ -29,6 +29,14 @@ fun PromptHost() {
         when (val ask = p.ask) {
             is Ask.HostKey -> HostKeyDialog(ask, onAnswer = { Prompts.answer(p, if (it) "yes" else null) })
             is Ask.Text -> TextDialog(ask, onAnswer = { Prompts.answer(p, it) })
+            is Ask.Confirm -> AlertDialog(
+                onDismissRequest = { Prompts.answer(p, null) },
+                properties = DialogProperties(dismissOnClickOutside = false),
+                title = { Text(ask.title) },
+                text = { Text(ask.message) },
+                confirmButton = { TextButton(onClick = { Prompts.answer(p, "yes") }) { Text(ask.yes) } },
+                dismissButton = { TextButton(onClick = { Prompts.answer(p, null) }) { Text("Deny") } },
+            )
         }
     }
 }
