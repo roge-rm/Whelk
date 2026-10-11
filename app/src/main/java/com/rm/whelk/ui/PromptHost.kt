@@ -102,7 +102,7 @@ private fun TextDialog(ask: Ask.Text, onAnswer: (String?) -> Unit) {
         text = {
             Column {
                 if (ask.message.isNotBlank()) Text(ask.message, Modifier.padding(bottom = 8.dp))
-                Field(ask.label, value, { value = it }, secret = ask.secret)
+                Field(ask.label, value, { value = it }, secret = ask.secret, onDone = { onAnswer(value) })
             }
         },
         confirmButton = { TextButton(onClick = { onAnswer(value) }) { Text("OK") } },

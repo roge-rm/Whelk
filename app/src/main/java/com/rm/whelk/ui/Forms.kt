@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -96,6 +98,7 @@ fun Field(
     minLines: Int = 1,
     monospace: Boolean = false,
     error: String? = null,
+    onDone: (() -> Unit)? = null,
 ) {
     var show by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -115,7 +118,9 @@ fun Field(
                 else -> KeyboardType.Text
             },
             autoCorrectEnabled = false,
+            imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default,
         ),
+        keyboardActions = KeyboardActions(onDone = onDone?.let { { it() } }),
         trailingIcon = if (secret) {
             { TextButton(onClick = { show = !show }) { Text(if (show) "Hide" else "Show") } }
         } else null,
