@@ -41,6 +41,7 @@ Dan
 - Make Ed25519, ECDSA and RSA keys, or import OpenSSH, PEM, PKCS#8 and PuTTY keys
 - Keyboard-interactive logins, for two-factor codes
 - OpenSSH certificates
+- Keys made in the phone's secure hardware, unlocked with your fingerprint or screen lock
 - FIDO security keys over USB or NFC
 - Agent forwarding, asking before each use
 
@@ -72,7 +73,7 @@ Dan
 ### Your setup
 
 - Everything encrypted on the phone, with an optional fingerprint or PIN lock
-- Encrypted backups, and sync through a folder (Syncthing, Nextcloud, etc)
+- Encrypted backups, and sync through a folder (Syncthing, Nextcloud, etc), with or without your passwords and keys
 - Share a group of connections as a file
 - Import `~/.ssh/config`, `known_hosts` or PuTTY sessions
 - Dark and light themes
