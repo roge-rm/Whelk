@@ -49,6 +49,7 @@ You can also download the APK from the [Releases](https://github.com/roge-rm/Whe
 ### Keys and logins
 
 - Make Ed25519, ECDSA and RSA keys, or import OpenSSH, PEM, PKCS#8 and PuTTY keys
+- Copy a key to a server, like ssh-copy-id
 - Keyboard-interactive logins, for two-factor codes
 - OpenSSH certificates
 - Keys made in the phone's secure hardware, unlocked with your fingerprint or screen lock

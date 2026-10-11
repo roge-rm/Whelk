@@ -2,7 +2,9 @@ package com.rm.whelk.ui
 
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -193,14 +195,15 @@ fun Section(text: String) {
     )
 }
 
-/** The title lowercase in mono with a blinking block cursor after it. */
+/** The title lowercase in mono with a block cursor after it that slowly fades in and out. */
 @Composable
 fun CursorTitle(text: String, style: TextStyle = MaterialTheme.typography.titleLarge) {
     val blink = rememberInfiniteTransition(label = "cursor")
+    // A slow fade in and out, about one beat every two seconds.
     val on by blink.animateFloat(
         initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(keyframes { durationMillis = 1060; 1f at 529; 0f at 530 }),
+        targetValue = 0.1f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "cursor",
     )
     val colour = MaterialTheme.colorScheme.primary

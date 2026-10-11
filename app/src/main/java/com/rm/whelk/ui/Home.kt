@@ -395,6 +395,10 @@ private fun ConnectionRow(c: Connection?, vault: Vault, nav: Nav, onConnect: () 
                         if (c.type == ConnectionType.SSH || c.type == ConnectionType.MOSH) {
                             DropdownMenuItem(text = { Text("Browse files") }, onClick = { menu = false; nav.go(Screen.Files(c.id)) })
                         }
+                        if ((c.type == ConnectionType.SSH || c.type == ConnectionType.MOSH) && com.rm.whelk.session.KeyCopy.keyFor(c) != null) {
+                            val ctx = LocalContext.current
+                            DropdownMenuItem(text = { Text("Copy key to server") }, onClick = { menu = false; com.rm.whelk.session.KeyCopy.install(ctx, c) })
+                        }
                         if (c.type == ConnectionType.SSH) {
                             DropdownMenuItem(text = { Text("Add port forward") }, onClick = { menu = false; nav.go(Screen.EditForward(null, c.id)) })
                         }

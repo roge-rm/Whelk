@@ -306,6 +306,11 @@ object Sessions {
             val stream = finishedSession as? com.termux.terminal.StreamSession
             val cancelled = generateSequence<Throwable>(stream?.mError) { it.cause }
                 .any { it is com.rm.whelk.core.CancelledException || it.message == "Cancelled" }
+            // A cancelled login closes the session, so nothing is left offering to reconnect.
+            if (cancelled && !s.userClosed) {
+                main.post { close(s) }
+                return
+            }
             val neverConnected = stream?.mConnectFailed == true && s.reconnectTries == 0
             val dropped = stream?.mEndedWithError == true && !cancelled && !neverConnected
             if (dropped && !s.userClosed) {
