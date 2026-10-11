@@ -104,4 +104,33 @@ class TeamTest {
         assertEquals(listOf(f), part.forwards)
         assertTrue(part.snippets.isEmpty())
     }
+
+    @Test
+    fun secretsLeftOutAndPutBack() {
+        val id = Identity(username = "dan", password = "pw", privateKey = "KEY", passphrase = "pp", publicKey = "ssh-ed25519 AAAA")
+        val c = Connection(host = "box", proxy = ProxySettings(type = ProxyType.SOCKS5, host = "p", password = "proxypw"))
+        val local = Vault().put(id).put(c)
+
+        val out = local.withoutSecrets()
+        val sentId = out.identity(id.id)!!
+        assertNull(sentId.password)
+        assertNull(sentId.privateKey)
+        assertEquals("ssh-ed25519 AAAA", sentId.publicKey)
+        assertEquals("", out.connection(c.id)!!.proxy.password)
+
+        // Another device changes the name later; the secrets come back from this one.
+        val changed = out.put(sentId.copy(name = "renamed", updated = id.updated + 1))
+        val merged = local.merge(changed).withSecretsFrom(local)
+        val back = merged.identity(id.id)!!
+        assertEquals("renamed", back.name)
+        assertEquals("pw", back.password)
+        assertEquals("KEY", back.privateKey)
+        assertEquals("pp", back.passphrase)
+        assertEquals(false, back.secretsKept)
+        assertEquals("proxypw", merged.connection(c.id)!!.proxy.password)
+
+        // A password removed on purpose elsewhere, from a copy with secrets, stays removed.
+        val removed = local.put(id.copy(password = null, updated = id.updated + 2))
+        assertNull(local.merge(removed).withSecretsFrom(local).identity(id.id)!!.password)
+    }
 }

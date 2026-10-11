@@ -83,7 +83,7 @@ private class Remote(private val connectionId: String, private val sessionId: In
             val vault = Store.vault.value
             val c = vault.connection(connectionId) ?: throw IllegalStateException("The connection is gone")
             val target = SshTarget.from(vault, c) ?: throw IllegalStateException("The jump hosts go round in a loop")
-            SshConnection(target, SessionPrompter(promptId) {}, Store.hostKeys, null, com.rm.whelk.session.SecurityKey.Signer(promptId)).also {
+            SshConnection(target, SessionPrompter(promptId) {}, Store.hostKeys, null, com.rm.whelk.session.SecurityKey.Signer(promptId), com.rm.whelk.session.HardwareKeys::provider).also {
                 own = it
                 it.connect()
             }
@@ -362,11 +362,14 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
 @Composable
 private fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     var text by remember { mutableStateOf(initial) }
+    fun submit() {
+        if (text.isNotBlank()) onDone(text.trim())
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { Field("Name", text, { text = it }) },
-        confirmButton = { TextButton(onClick = { if (text.isNotBlank()) onDone(text.trim()) }) { Text("OK") } },
+        text = { Field("Name", text, { text = it }, onDone = ::submit) },
+        confirmButton = { TextButton(onClick = ::submit) { Text("OK") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

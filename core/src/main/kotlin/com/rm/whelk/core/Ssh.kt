@@ -20,6 +20,7 @@ import net.schmizz.sshj.userauth.method.AuthKeyboardInteractive
 import net.schmizz.sshj.userauth.method.AuthMethod
 import net.schmizz.sshj.userauth.method.AuthPassword
 import net.schmizz.sshj.userauth.method.AuthPublickey
+import net.schmizz.sshj.userauth.keyprovider.KeyProvider
 import net.schmizz.sshj.userauth.method.ChallengeResponseProvider
 import net.schmizz.sshj.userauth.password.PasswordFinder
 import net.schmizz.sshj.userauth.password.Resource
@@ -39,6 +40,8 @@ data class SshTarget(
     val privateKey: String? = null,
     val passphrase: String? = null,
     val certificate: String? = null,
+    /** A key in the phone's secure hardware, by alias. */
+    val hardwareKey: String? = null,
     val keepAlive: Int = 30,
     val compression: Boolean = false,
     /** A jump host to connect through first. */
@@ -61,6 +64,7 @@ data class SshTarget(
                 privateKey = identity?.privateKey,
                 passphrase = identity?.passphrase,
                 certificate = identity?.certificate,
+                hardwareKey = identity?.hardwareKey,
                 keepAlive = connection.keepAlive,
                 compression = connection.compression,
                 via = via,
@@ -114,6 +118,8 @@ class SshConnection(
     private val agent: AgentKeys? = null,
     /** Signs with a FIDO security key, for sk- keys. */
     private val securityKey: com.hierynomus.sshj.userauth.fido.SecurityKeySigner? = null,
+    /** Opens a key kept in the phone's secure hardware, by alias. Throws if it isn't on this phone. */
+    private val hardwareKeys: ((String) -> KeyProvider)? = null,
 ) : Closeable {
     private var agentAttached = false
     private val clients = mutableListOf<SSHClient>()
@@ -160,6 +166,13 @@ class SshConnection(
         val target = t.copy(username = username)
         prompter.progress("Logging in as $username…")
         val methods = mutableListOf<AuthMethod>()
+        target.hardwareKey?.let { alias ->
+            val keys = hardwareKeys ?: throw IOException("This key is kept on another phone")
+            val key = keys(alias)
+            // Unlocking can ask the user, so it happens here rather than inside sshj's login, which times out.
+            key.private
+            methods += AuthPublickey(key)
+        }
         if (!target.privateKey.isNullOrBlank()) {
             var passphrase = target.passphrase
             if (passphrase == null && Keys.isEncrypted(target.privateKey)) {
@@ -368,7 +381,9 @@ class SshConnection(
             keyAlgorithms = listOf(
                 KeyAlgorithms.Factory("rsa-sha2-512-cert-v01@openssh.com", SignatureRSA.FactoryRSASHA512(), KeyType.RSA_CERT),
                 KeyAlgorithms.Factory("rsa-sha2-256-cert-v01@openssh.com", SignatureRSA.FactoryRSASHA256(), KeyType.RSA_CERT),
-            ) + keyAlgorithms
+            ) + keyAlgorithms.map {
+                if (it.name == KeyType.ECDSA256.toString()) KeyAlgorithms.Factory(it.name, EcdsaAnyProvider.Factory(), KeyType.ECDSA256) else it
+            }
         }
     }
 }

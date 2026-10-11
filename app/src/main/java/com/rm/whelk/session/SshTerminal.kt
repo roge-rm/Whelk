@@ -27,7 +27,7 @@ class SshTerminal(
         val target = SshTarget.from(vault, conn) ?: throw IllegalStateException("The jump hosts go round in a loop")
         if (target.host.isEmpty()) throw IllegalStateException("No host name")
         val agent = if (conn.forwardAgent) PhoneAgent(session.id, target.host) else null
-        val c = SshConnection(target, SessionPrompter(session.id) { feed(it) }, Store.hostKeys, agent, SecurityKey.Signer(session.id))
+        val c = SshConnection(target, SessionPrompter(session.id) { feed(it) }, Store.hostKeys, agent, SecurityKey.Signer(session.id), HardwareKeys::provider)
         connection = c
         if (stopped) throw IllegalStateException("Cancelled")
         c.connect()

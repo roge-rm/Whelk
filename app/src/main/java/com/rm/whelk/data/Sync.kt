@@ -12,6 +12,8 @@ import com.rm.whelk.core.merge
 import com.rm.whelk.core.newId
 import com.rm.whelk.core.now
 import com.rm.whelk.core.teamPart
+import com.rm.whelk.core.withSecretsFrom
+import com.rm.whelk.core.withoutSecrets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
@@ -136,10 +138,12 @@ object Sync {
             }
 
             val incoming = if (t.team) remote.teamPart(groupId!!) else remote
-            Store.update { it.merge(incoming) }
+            // Items from a copy without secrets get this phone's back.
+            Store.update { it.merge(incoming).withSecretsFrom(it) }
 
             val local = Store.vault.value
-            val out = if (t.team) local.teamPart(groupId!!) else local
+            val out = (if (t.team) local.teamPart(groupId!!) else local)
+                .let { if (Settings.value.secretsStayHere) it.withoutSecrets() else it }
             if (main == null || conflicts.isNotEmpty() || out.normal() != remote.normal()) {
                 val sealed = Sealed.seal(out.toJson().toByteArray(Charsets.UTF_8), t.passphrase.toCharArray())
                 val target = main ?: dir.createFile("application/octet-stream", t.file)

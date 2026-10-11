@@ -10,6 +10,9 @@ import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -212,13 +215,23 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (sessions.size > 1) {
-                    Text(" ${sessions.indexOf(session) + 1}/${sessions.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(" ${sessions.indexOf(session) + 1}/${sessions.size}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 }
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch session")
                 DropdownMenu(expanded = switcher, onDismissRequest = { switcher = false }) {
                     for (s in sessions) {
+                        val closed = s.state.value == SessionState.CLOSED
                         DropdownMenuItem(
-                            text = { Text(s.title + if (s.state.value == SessionState.CLOSED) " (closed)" else "") },
+                            text = {
+                                Text(
+                                    s.title + if (closed) " (closed)" else "",
+                                    fontFamily = monoFamily(),
+                                    color = if (s === session) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                )
+                            },
+                            leadingIcon = {
+                                Box(Modifier.size(8.dp).background(if (closed) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary, MaterialTheme.shapes.extraSmall))
+                            },
                             onClick = {
                                 switcher = false
                                 if (s !== session) nav.swap(Screen.Terminal(s.id))
@@ -427,7 +440,14 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
             title = { Text(s.name.ifEmpty { "Snippet" }) },
             text = {
                 Column {
-                    for (f in fields) Field(f.name, values[f.name].orEmpty(), { values[f.name] = it })
+                    for ((n, f) in fields.withIndex()) {
+                        val last = n == fields.lastIndex
+                        Field(
+                            f.name, values[f.name].orEmpty(), { values[f.name] = it },
+                            onDone = if (last) { { runSnippet(session, s, values.toMap()); filling = null } } else null,
+                            next = !last,
+                        )
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { runSnippet(session, s, values.toMap()); filling = null }) { Text("Type it") } },
@@ -580,18 +600,24 @@ private fun ForwardsDialog(session: Session, onDismiss: () -> Unit, onAdd: () ->
 
 @Composable
 private fun ExtraKeyRow(keys: List<Key>, modifiers: Modifiers, onKey: (Key) -> Unit) {
+    // Keys drawn as small square caps; a held Ctrl or Alt lights up lime, and a locked one is underlined.
+    val shape = MaterialTheme.shapes.extraSmall
+    val mono = monoFamily()
     Row(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).horizontalScroll(rememberScrollState()).height(44.dp),
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).horizontalScroll(rememberScrollState())
+            .height(44.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         for (k in keys) {
             val on = (k is Key.Ctrl && modifiers.ctrl) || (k is Key.Alt && modifiers.alt)
             val locked = (k is Key.Ctrl && modifiers.ctrlLock) || (k is Key.Alt && modifiers.altLock)
             Box(
                 Modifier
-                    .height(44.dp)
-                    .widthIn(min = 46.dp)
-                    .background(if (on) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                    .height(34.dp)
+                    .widthIn(min = 40.dp)
+                    .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+                    .border(1.dp, if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, shape)
                     .combinedClickableCompat(
                         onClick = {
                             when (k) {
@@ -606,14 +632,15 @@ private fun ExtraKeyRow(keys: List<Key>, modifiers: Modifiers, onKey: (Key) -> U
                             else -> null
                         },
                     )
-                    .padding(horizontal = 10.dp),
+                    .padding(horizontal = 9.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    if (locked) k.label.uppercase() else k.label,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 15.sp,
-                    color = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    k.label,
+                    fontFamily = mono,
+                    fontSize = 14.sp,
+                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    textDecoration = if (locked) androidx.compose.ui.text.style.TextDecoration.Underline else null,
                 )
             }
         }

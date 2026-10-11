@@ -12,6 +12,10 @@ public abstract class StreamSession extends TerminalSession {
 
     /** Set when the session ended on an error, like a dropped network, rather than the far end closing. */
     public volatile boolean mEndedWithError;
+    /** The error the session ended on, if any. */
+    public volatile Exception mError;
+    /** It ended before it ever connected. */
+    public volatile boolean mConnectFailed;
 
     protected StreamSession(Integer transcriptRows, TerminalSessionClient client) {
         super(transcriptRows, client);
@@ -55,6 +59,8 @@ public abstract class StreamSession extends TerminalSession {
                     streams = connect(columns, rows);
                 } catch (Exception e) {
                     mEndedWithError = true;
+                    mError = e;
+                    mConnectFailed = true;
                     onClosed();
                     finished(closedMessage(e));
                     return;
@@ -88,6 +94,7 @@ public abstract class StreamSession extends TerminalSession {
                     error = e;
                 }
                 mEndedWithError = error != null;
+                mError = error;
                 onClosed();
                 finished(closedMessage(error));
             }

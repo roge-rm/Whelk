@@ -48,6 +48,8 @@ fun SettingsScreen(nav: Nav) {
         }
 
         SwitchRow("Ask before a server uses my keys", p.askBeforeAgent) { v -> Settings.update { it.copy(askBeforeAgent = v) } }
+        SwitchRow("Leave passwords and keys out of backups and sync", p.secretsStayHere) { v -> Settings.update { it.copy(secretsStayHere = v) } }
+        if (p.secretsStayHere) Note("Turn it on for every device that syncs")
 
         Section("Sessions")
         SwitchRow("Reconnect after a drop", p.autoReconnect) { v -> Settings.update { it.copy(autoReconnect = v) } }

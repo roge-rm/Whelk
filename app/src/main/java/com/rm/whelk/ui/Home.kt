@@ -205,7 +205,7 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
                         onClick = { group = if (group == g.id) null else g.id },
                         label = { Text(g.name.ifEmpty { "Group" }) },
                         leadingIcon = if (g.colour != 0L) {
-                            { Box(Modifier.size(10.dp).background(Color(g.colour), CircleShape)) }
+                            { Box(Modifier.size(10.dp).background(Color(g.colour), MaterialTheme.shapes.extraSmall)) }
                         } else null,
                     )
                 }
@@ -236,14 +236,16 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
         val localShell: LazyListScope.() -> Unit = {
             item(key = "local") { ConnectionRow(null, vault, nav, onConnect = { connect(nav, context, null) }, onDelete = {}) }
         }
-        if (!browsing) localShell()
+        // The local shell sits with the rest behind the button, unless there's nothing else to show.
+        val shellHidden = browsing && recent.isNotEmpty()
+        if (!shellHidden) localShell()
         if (recent.isNotEmpty()) {
             header("Recent")
             items(recent, key = { "r" + it.id }) { c ->
                 ConnectionRow(c, vault, nav, onConnect = { connect(nav, context, c) }, onDelete = { deleting = c })
             }
         }
-        if (browsing) {
+        if (shellHidden) {
             item(key = "all") {
                 TextButton(
                     onClick = { showAll = !showAll },
@@ -255,7 +257,7 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
                 }
             }
         }
-        if (browsing && showAll) localShell()
+        if (shellHidden && showAll) localShell()
         if (!browsing || showAll) {
             items(rest, key = { it.id }) { c ->
                 ConnectionRow(c, vault, nav, onConnect = { connect(nav, context, c) }, onDelete = { deleting = c })
@@ -326,7 +328,7 @@ private fun SessionRow(s: Session, onOpen: () -> Unit) {
                 SessionState.OPEN -> MaterialTheme.colorScheme.primary
                 SessionState.CLOSED -> MaterialTheme.colorScheme.outline
             }
-            Box(Modifier.size(10.dp).background(colour, CircleShape))
+            Box(Modifier.size(10.dp).background(colour, MaterialTheme.shapes.extraSmall))
         },
         trailingContent = {
             IconButton(onClick = { Sessions.close(s) }) { Icon(Icons.Default.Close, contentDescription = "Disconnect") }
@@ -363,7 +365,7 @@ private fun ConnectionRow(c: Connection?, vault: Vault, nav: Nav, onConnect: () 
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(c?.title(vault) ?: "Local shell", maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (open) Box(Modifier.padding(start = 8.dp).size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                if (open) Box(Modifier.padding(start = 8.dp).size(8.dp).background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.extraSmall))
             }
         },
         supportingContent = {
@@ -432,6 +434,7 @@ private fun IdentitiesTab(nav: Nav, vault: Vault) {
                     val parts = buildList {
                         if (i.username.isNotEmpty()) add(i.username)
                         if (!i.privateKey.isNullOrBlank()) add("key")
+                        if (i.hardwareKey != null) add("phone key")
                         if (!i.password.isNullOrEmpty()) add("password")
                         add(if (used == 1) "1 connection" else "$used connections")
                     }
@@ -448,7 +451,8 @@ private fun IdentitiesTab(nav: Nav, vault: Vault) {
     }
     deleting?.let { i ->
         ConfirmDelete(i.title(), onDismiss = { deleting = null }) {
-            Store.update { it.put(i.copy(deleted = true, password = null, privateKey = null, passphrase = null, updated = now())) }
+            Store.update { it.put(i.copy(deleted = true, password = null, privateKey = null, passphrase = null, hardwareKey = null, updated = now())) }
+            i.hardwareKey?.let { com.rm.whelk.session.HardwareKeys.delete(it) }
             deleting = null
         }
     }

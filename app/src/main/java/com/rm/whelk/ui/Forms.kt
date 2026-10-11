@@ -98,7 +98,10 @@ fun Field(
     minLines: Int = 1,
     monospace: Boolean = false,
     error: String? = null,
+    /** Enter runs this, as if OK was tapped. */
     onDone: (() -> Unit)? = null,
+    /** Enter moves to the next field. */
+    next: Boolean = false,
 ) {
     var show by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -118,7 +121,11 @@ fun Field(
                 else -> KeyboardType.Text
             },
             autoCorrectEnabled = false,
-            imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default,
+            imeAction = when {
+                onDone != null -> ImeAction.Done
+                next -> ImeAction.Next
+                else -> ImeAction.Default
+            },
         ),
         keyboardActions = KeyboardActions(onDone = onDone?.let { { it() } }),
         trailingIcon = if (secret) {
@@ -163,6 +170,17 @@ fun <T> Choice(label: String, value: T, options: List<T>, name: (T) -> String, o
             }
         }
     }
+}
+
+/** A one-line note under a control, for a consequence you can't see. */
+@Composable
+fun Note(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
 }
 
 @Composable

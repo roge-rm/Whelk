@@ -256,6 +256,14 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
     var passwordSaved by remember { mutableStateOf(original.password != null) }
     var privateKey by remember { mutableStateOf(original.privateKey.orEmpty()) }
     var publicKey by remember { mutableStateOf(original.publicKey.orEmpty()) }
+    var hardwareKey by remember { mutableStateOf(original.hardwareKey) }
+    val hasKey = privateKey.isNotBlank() || hardwareKey != null
+
+    /** Drops a phone key made in this editor that hasn't been saved; the saved one goes on save. */
+    fun dropUnsavedHardwareKey() {
+        hardwareKey?.takeIf { it != original.hardwareKey }?.let { com.rm.whelk.session.HardwareKeys.delete(it) }
+        hardwareKey = null
+    }
     var passphrase by remember { mutableStateOf("") }
     var passphraseSaved by remember { mutableStateOf(original.passphrase != null) }
 
@@ -278,6 +286,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         try {
             publicKey = Keys.publicLineFor(key, keyPassphrase(), comment())
             privateKey = key
+            dropUnsavedHardwareKey()
             keyError = null
         } catch (e: Exception) {
             if (Keys.isEncrypted(key) && keyPassphrase() == null) {
@@ -321,14 +330,34 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
             name = name.trim(),
             username = username.trim(),
             password = password.ifEmpty { if (passwordSaved) original.password else null },
-            privateKey = privateKey.ifBlank { null },
+            privateKey = privateKey.ifBlank { null }.takeIf { hardwareKey == null },
             publicKey = publicKey.ifBlank { null },
+            hardwareKey = hardwareKey,
             passphrase = keyPassphrase().takeIf { privateKey.isNotBlank() },
             certificate = certificate.trim().ifEmpty { null }.takeIf { privateKey.isNotBlank() },
             updated = now(),
         )
         Store.update { it.put(i) }
+        original.hardwareKey?.takeIf { it != hardwareKey }?.let { com.rm.whelk.session.HardwareKeys.delete(it) }
         nav.back()
+    }
+
+    fun makePhoneKey() {
+        generating = true
+        scope.launch {
+            val made = withContext(Dispatchers.IO) { runCatching { com.rm.whelk.session.HardwareKeys.make(context, comment()) } }
+            generating = false
+            made.onSuccess { (alias, line) ->
+                dropUnsavedHardwareKey()
+                hardwareKey = alias
+                privateKey = ""
+                publicKey = line
+                passphrase = ""
+                passphraseSaved = false
+                certificate = ""
+                keyError = null
+            }.onFailure { keyError = it.message ?: "Couldn't make a key" }
+        }
     }
 
     FormScreen(
@@ -342,13 +371,24 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         SecretField("Password", password, { password = it }, saved = passwordSaved, onRemove = { passwordSaved = false })
 
         Section("Private key")
-        if (privateKey.isNotBlank()) {
+        if (hasKey) {
             val fp = Keys.fingerprintOfLine(publicKey)
             Text(
                 publicKey.substringBefore(' ').ifEmpty { "Key" } + (fp?.let { "\n$it" } ?: ""),
                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
                 modifier = Modifier.padding(vertical = 4.dp),
             )
+        }
+        hardwareKey?.let { alias ->
+            val here = remember(alias) { com.rm.whelk.session.HardwareKeys.has(alias) }
+            Text(
+                if (here) "Kept in this phone's hardware" else "Kept on another phone, so it can't be used here",
+                color = if (here) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+        }
+        if (privateKey.isNotBlank()) {
             SecretField("Key passphrase", passphrase, { passphrase = it; keyError = null }, saved = passphraseSaved, onRemove = { passphraseSaved = false })
         }
         keyError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 4.dp)) }
@@ -357,6 +397,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { chooseKind = true }, enabled = !generating) { Text("Generate") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = ::makePhoneKey, enabled = !generating) { Text("Phone key") }
             OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { makingSk = true }, enabled = !generating) { Text("Security key") }
             OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { importKey.launch(arrayOf("*/*")) }) { Text("Import file") }
             OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { pasting = true }) { Text("Paste") }
@@ -370,8 +411,8 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                     context.startActivity(Intent.createChooser(send, "Share public key"))
                 }) { Text("Share public key") }
             }
-            if (privateKey.isNotBlank()) {
-                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { privateKey = ""; publicKey = ""; passphrase = ""; passphraseSaved = false; certificate = ""; keyError = null }) { Text("Remove key") }
+            if (hasKey) {
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { dropUnsavedHardwareKey(); privateKey = ""; publicKey = ""; passphrase = ""; passphraseSaved = false; certificate = ""; keyError = null }) { Text("Remove key") }
             }
         }
 
@@ -420,6 +461,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                         generating = false
                         made.onSuccess {
                             privateKey = it.privateKey
+                            dropUnsavedHardwareKey()
                             publicKey = it.publicKey
                             passphrase = ""
                             passphraseSaved = false
@@ -464,6 +506,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                                 generating = false
                                 made.onSuccess {
                                     privateKey = it.privateKey
+                                    dropUnsavedHardwareKey()
                                     publicKey = it.publicKey
                                     passphrase = ""
                                     passphraseSaved = false
@@ -492,7 +535,9 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
 
     if (deleting) {
         ConfirmDelete(original.title(), onDismiss = { deleting = false }) {
-            Store.update { it.put(original.copy(deleted = true, password = null, privateKey = null, passphrase = null, updated = now())) }
+            Store.update { it.put(original.copy(deleted = true, password = null, privateKey = null, passphrase = null, hardwareKey = null, updated = now())) }
+            dropUnsavedHardwareKey()
+            original.hardwareKey?.let { com.rm.whelk.session.HardwareKeys.delete(it) }
             nav.back()
         }
     }
@@ -621,8 +666,8 @@ fun EditGroupScreen(nav: Nav, id: String?) {
             for (c in groupColours) {
                 Box(
                     Modifier.size(36.dp)
-                        .background(if (c == 0L) MaterialTheme.colorScheme.surfaceVariant else Color(c), CircleShape)
-                        .border(if (c == colour) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                        .background(if (c == 0L) MaterialTheme.colorScheme.surfaceVariant else Color(c), MaterialTheme.shapes.extraSmall)
+                        .border(if (c == colour) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, MaterialTheme.shapes.extraSmall)
                         .combinedClickableCompat(onClick = { colour = c })
                 )
             }

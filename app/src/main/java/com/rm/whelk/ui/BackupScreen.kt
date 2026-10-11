@@ -35,7 +35,10 @@ import com.rm.whelk.core.KnownHostsFile
 import com.rm.whelk.core.Sealed
 import com.rm.whelk.core.Vault
 import com.rm.whelk.core.merge
+import com.rm.whelk.data.Settings
 import com.rm.whelk.data.Store
+import com.rm.whelk.core.withSecretsFrom
+import com.rm.whelk.core.withoutSecrets
 import com.rm.whelk.data.Sync
 import com.rm.whelk.data.SyncTarget
 import kotlinx.coroutines.Dispatchers
@@ -222,7 +225,8 @@ fun BackupScreen(nav: Nav) {
                 is Pending.Export -> scope.launch {
                     val ok = withContext(Dispatchers.IO) {
                         runCatching {
-                            val sealed = Sealed.seal(Store.vault.value.toJson().toByteArray(), pass.toCharArray())
+                            val vault = Store.vault.value.let { if (Settings.value.secretsStayHere) it.withoutSecrets() else it }
+                            val sealed = Sealed.seal(vault.toJson().toByteArray(), pass.toCharArray())
                             context.contentResolver.openOutputStream(p.uri, "wt")!!.use { it.write(sealed) }
                         }
                     }
@@ -267,14 +271,14 @@ fun BackupScreen(nav: Nav) {
             text = { Text("${backup.liveConnections().size} connections, ${backup.liveIdentities().size} identities. Add them to what's here, or replace everything?") },
             confirmButton = {
                 TextButton(onClick = {
-                    Store.update { it.merge(backup) }
+                    Store.update { it.merge(backup).withSecretsFrom(it) }
                     restored = null
                     message = "Backup added"
                 }) { Text("Add") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    Store.update { backup }
+                    Store.update { backup.withSecretsFrom(it) }
                     restored = null
                     message = "Backup restored"
                 }) { Text("Replace") }
@@ -354,24 +358,23 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
     var a by remember { mutableStateOf("") }
     var b by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    fun submit() {
+        when {
+            a.length < 8 && confirm -> error = "At least 8 characters"
+            confirm && a != b -> error = "Doesn't match"
+            else -> onDone(a)
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             Column {
-                Field("Passphrase", a, { a = it; error = null }, secret = true)
-                if (confirm) Field("Again", b, { b = it; error = null }, secret = true, error = error)
+                Field("Passphrase", a, { a = it; error = null }, secret = true, onDone = if (confirm) null else ::submit, next = confirm)
+                if (confirm) Field("Again", b, { b = it; error = null }, secret = true, error = error, onDone = ::submit)
             }
         },
-        confirmButton = {
-            TextButton(onClick = {
-                when {
-                    a.length < 8 && confirm -> error = "At least 8 characters"
-                    confirm && a != b -> error = "Doesn't match"
-                    else -> onDone(a)
-                }
-            }) { Text("OK") }
-        },
+        confirmButton = { TextButton(onClick = ::submit) { Text("OK") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

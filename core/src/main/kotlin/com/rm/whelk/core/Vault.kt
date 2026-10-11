@@ -158,6 +158,8 @@ data class Connection(
     /** The device's name, to show in lists. */
     val deviceName: String = "",
     val lastUsed: Long = 0,
+    /** The proxy password was left on the device that wrote this copy. */
+    val secretsKept: Boolean = false,
     override val updated: Long = now(),
     override val deleted: Boolean = false,
 ) : Item {
@@ -188,6 +190,10 @@ data class Identity(
     val passphrase: String? = null,
     /** An OpenSSH certificate for the key, the line from its -cert.pub file. */
     val certificate: String? = null,
+    /** The alias of a key kept in one phone's secure hardware, in place of [privateKey]. */
+    val hardwareKey: String? = null,
+    /** The password, key and passphrase were left on the device that wrote this copy. */
+    val secretsKept: Boolean = false,
     override val updated: Long = now(),
     override val deleted: Boolean = false,
 ) : Item {

@@ -45,6 +45,8 @@ data class Prefs(
     val swipe: Swipe = Swipe.SESSIONS,
     /** Ask each time a server wants to sign with a key through agent forwarding. */
     val askBeforeAgent: Boolean = true,
+    /** Leave passwords, keys and passphrases out of backups and sync files. */
+    val secretsStayHere: Boolean = false,
     val appTheme: AppTheme = AppTheme.DARK,
     /** The row of keys above the keyboard, in order. */
     val extraKeyList: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaults,
@@ -80,6 +82,7 @@ object Settings {
             straightenPaste = prefs.getBoolean("straightenPaste", d.straightenPaste),
             swipe = runCatching { Swipe.valueOf(prefs.getString("swipe", null)!!) }.getOrDefault(d.swipe),
             askBeforeAgent = prefs.getBoolean("askBeforeAgent", d.askBeforeAgent),
+            secretsStayHere = prefs.getBoolean("secretsStayHere", d.secretsStayHere),
             appTheme = runCatching { AppTheme.valueOf(prefs.getString("appTheme", null)!!) }.getOrDefault(d.appTheme),
             extraKeyList = prefs.getString("extraKeyList", null)?.let { j ->
                 runCatching { Vault.json.decodeFromString(ListSerializer(ExtraKey.serializer()), j) }.getOrNull()
@@ -109,6 +112,7 @@ object Settings {
             .putBoolean("straightenPaste", p.straightenPaste)
             .putString("swipe", p.swipe.name)
             .putBoolean("askBeforeAgent", p.askBeforeAgent)
+            .putBoolean("secretsStayHere", p.secretsStayHere)
             .putString("appTheme", p.appTheme.name)
             .putBoolean("notifyBell", p.notifyBell)
             .putBoolean("autoReconnect", p.autoReconnect)

@@ -122,6 +122,24 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** Fingerprint or screen lock, so a key in the phone's hardware can sign. */
+    private fun unlockKey(request: com.rm.whelk.session.UnlockRequest) {
+        val keys = com.rm.whelk.session.HardwareKeys
+        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = keys.answer(request, true)
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = keys.answer(request, false)
+        })
+        // Strong biometrics or the screen lock unlock Keystore keys; Android 10 and older can't ask for that pair.
+        val allowed = if (Build.VERSION.SDK_INT >= 30) BiometricManager.Authenticators.BIOMETRIC_STRONG
+        else BiometricManager.Authenticators.BIOMETRIC_WEAK
+        prompt.authenticate(
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle(request.title)
+                .setAllowedAuthenticators(allowed or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .build()
+        )
+    }
+
     fun unlock() {
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
@@ -149,6 +167,8 @@ class MainActivity : FragmentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     val locked by Lock.locked.collectAsState()
                     val keyJob by com.rm.whelk.session.SecurityKey.pending.collectAsState()
+                    val unlockRequest by com.rm.whelk.session.HardwareKeys.pending.collectAsState()
+                    LaunchedEffect(unlockRequest) { unlockRequest?.let { unlockKey(it) } }
                     // Listen for security keys only while something is waiting on one.
                     LaunchedEffect(keyJob) {
                         if (keyJob != null) com.rm.whelk.session.SecurityKey.listen(this@MainActivity)

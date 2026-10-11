@@ -302,7 +302,12 @@ object Sessions {
             s.state.value = SessionState.CLOSED
             s.stopAllForwards()
             changed()
-            val dropped = (finishedSession as? com.termux.terminal.StreamSession)?.mEndedWithError == true
+            // Reconnect after a drop, but not after a cancel, or when a new session never got through.
+            val stream = finishedSession as? com.termux.terminal.StreamSession
+            val cancelled = generateSequence<Throwable>(stream?.mError) { it.cause }
+                .any { it is com.rm.whelk.core.CancelledException || it.message == "Cancelled" }
+            val neverConnected = stream?.mConnectFailed == true && s.reconnectTries == 0
+            val dropped = stream?.mEndedWithError == true && !cancelled && !neverConnected
             if (dropped && !s.userClosed) {
                 if (Settings.value.autoReconnect) Reconnect.schedule(s)
                 else if (Alerts.away(s)) Alerts.post(s, Alerts.KIND_DROPPED, s.title, "Disconnected")

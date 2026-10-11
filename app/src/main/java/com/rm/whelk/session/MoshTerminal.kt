@@ -27,7 +27,7 @@ class MoshStarter(private val context: Context, private val session: Session) : 
         val client = File(context.applicationInfo.nativeLibraryDir, "libmosh-client.so")
         if (!client.canExecute()) throw IllegalStateException("Mosh isn't built into this copy of Whelk")
 
-        val c = SshConnection(target, SessionPrompter(session.id) { terminal.progress(it) }, Store.hostKeys, null, SecurityKey.Signer(session.id))
+        val c = SshConnection(target, SessionPrompter(session.id) { terminal.progress(it) }, Store.hostKeys, null, SecurityKey.Signer(session.id), HardwareKeys::provider)
         ssh = c
         val connect: Mosh.Connect
         try {
