@@ -412,7 +412,7 @@ private fun IdentitiesTab(nav: Nav, vault: Vault) {
                 modifier = Modifier.combinedClickableCompat(onClick = { nav.go(Screen.EditIdentity(i.id)) }),
             )
         }
-        if (list.isEmpty()) item { EmptyNote("An identity is a username with a password or key, shared by any number of connections.") }
+        if (list.isEmpty()) item { EmptyNote("A username with a password or key, for any number of connections.") }
         item { Spacer(Modifier.size(80.dp)) }
     }
     deleting?.let { i ->
@@ -446,7 +446,7 @@ private fun SnippetsTab(nav: Nav, vault: Vault) {
                 modifier = Modifier.combinedClickableCompat(onClick = { nav.go(Screen.EditSnippet(s.id)) }),
             )
         }
-        if (list.isEmpty()) item { EmptyNote("Snippets are commands you can type into a session from its menu.") }
+        if (list.isEmpty()) item { EmptyNote("Commands to type into a session from its menu.") }
         item { Spacer(Modifier.size(80.dp)) }
     }
 }
@@ -499,7 +499,7 @@ private fun ForwardsTab(nav: Nav, vault: Vault) {
             )
             HorizontalDivider()
         }
-        if (list.isEmpty()) item { EmptyNote("Port forwards run over a connection: local, remote or a SOCKS proxy.") }
+        if (list.isEmpty()) item { EmptyNote("Local, remote and SOCKS forwards over a connection.") }
         item { Spacer(Modifier.size(80.dp)) }
     }
 }

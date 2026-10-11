@@ -73,11 +73,11 @@ private fun HostKeyDialog(ask: Ask.HostKey, onAnswer: (Boolean) -> Unit) {
             Column {
                 if (changed) {
                     Text(
-                        "The key for ${c.host} isn't the one saved before. Someone may be in the middle, or the server was reinstalled.",
+                        "The key for ${c.host} has changed. Someone may be listening in, or the server was reinstalled.",
                         color = MaterialTheme.colorScheme.error,
                     )
                 } else {
-                    Text("First time connecting to ${c.host}:${c.port}. Check the fingerprint matches the server's.")
+                    Text("First time connecting to ${c.host}:${c.port}. Check the fingerprint.")
                 }
                 Text(c.keyType, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelLarge)
                 Text(c.fingerprint, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)

@@ -16,57 +16,57 @@ Dan
 
 ### Connections
 
-- SSH, Mosh, Telnet, USB serial, Bluetooth serial and the phone's own shell
-- Raw TCP: a plain connection to a host and port with nothing on top, for serial servers like ser2net, console servers and MUDs
-- Identities with a password, a key or both, shared between any number of connections
-- Groups with colours, search, and the connections you used last at the top
-- Type `user@host:port` in the search box to connect straight away
-- Jump hosts, as many deep as you like, and HTTP or SOCKS proxies
-- Keepalive, compression, environment variables, the server's character set, what Backspace sends, and a tmux session to attach to
-- Host keys checked and saved, with a warning if one changes, and a screen to look over and forget them
-- Reconnects by itself after a drop, keeping what was on screen
-- Launcher shortcuts for recent connections, and any connection can go on the home screen
+- SSH, Mosh, Telnet, USB and Bluetooth serial, and the phone's own shell
+- Raw TCP, for ser2net, console servers and MUDs
+- Identities (password, key or both) shared between connections
+- Groups with colours, search, and recent connections at the top
+- Type `user@host:port` in the search box to connect
+- Jump hosts, and HTTP or SOCKS proxies
+- Keepalive, compression, environment variables, character set, Backspace and tmux options
+- Host keys checked and saved, with a warning if one changes
+- Reconnects after a drop, keeping the screen
+- Launcher and home screen shortcuts
 
 ### Keys and logins
 
-- Make Ed25519, ECDSA and RSA keys, or bring in OpenSSH, PEM, PKCS#8 and PuTTY keys, with or without a passphrase
+- Make Ed25519, ECDSA and RSA keys, or import OpenSSH, PEM, PKCS#8 and PuTTY keys
 - Keyboard-interactive logins, for two-factor codes
 - OpenSSH certificates
-- FIDO security keys (sk-ssh-ed25519 and sk-ecdsa) over USB or NFC, made on the phone or brought in
-- Agent forwarding, asking before each use of a key
+- FIDO security keys over USB or NFC
+- Agent forwarding, asking before each use
 
 ### The terminal
 
-- Full colour, Unicode, mouse support, and a scrollback you can search
-- Fira Mono, JetBrains Mono, Hack and Caskaydia Cove, all with powerline and icon symbols, or a font file of your own
-- Colour schemes built in, or brought in from iTerm2, Xresources, Termux, Windows Terminal and Alacritty, set for the app or per connection
-- A row of extra keys above the keyboard (Esc, Tab, Ctrl, Alt, arrows, function keys) that you can rearrange and add your own to
-- Pinch or the volume keys to change the text size
-- Swipe sideways to switch sessions, or tmux or screen windows
-- Copy and paste, with pasted text cleaned of the invisible characters, odd spaces and curly quotes that web pages bring along
-- Open the links on screen
+- Full colour, Unicode, mouse support and searchable scrollback
+- Fira Mono, JetBrains Mono, Hack and Caskaydia Cove with powerline and icon symbols, or your own font
+- Colour schemes built in, or imported from iTerm2, Xresources, Termux, Windows Terminal and Alacritty
+- An extra keys row (Esc, Tab, Ctrl, Alt, arrows, F keys) you can rearrange
+- Pinch or volume keys for text size
+- Swipe to switch sessions, or tmux and screen windows
+- Paste without the hidden characters and curly quotes web pages bring along
+- Open links on screen
 - Several sessions at once, and typing into several at once
-- Record a session to a text file, or every session to a folder
-- Notifications when there's new output, when output stops, when words you pick show up, on the bell, or when a program asks for one
+- Record sessions to text files
+- Notifications for new output, quiet, chosen words, the bell, or when a program asks
 
 ### Snippets and port forwards
 
-- Snippets to type into a session, with `{{placeholders}}` that ask for a value first, and one to run on connect
-- Local, remote and dynamic (SOCKS) port forwards, started by hand, with the connection, or from a home screen widget
+- Snippets with `{{placeholders}}`, and one to run on connect
+- Local, remote and SOCKS forwards, started by hand, with the connection or from a widget
 - Open a local forward in the browser
 
 ### Files
 
-- An SFTP browser: open, save to the phone, upload, rename, delete and make folders
-- Edit a file in any editor app on the phone, and it goes back up each time you save
+- An SFTP browser: open, download, upload, rename, delete and make folders
+- Edit a file in any editor app, and it uploads each time you save
 
 ### Your setup
 
-- Everything is kept encrypted on the phone, and the app can lock with your fingerprint or PIN
-- Encrypted backups, and sync through a folder you pick (Syncthing, Nextcloud, etc)
-- Share a group of connections with other people through a file export
-- Bring in your `~/.ssh/config`, `known_hosts` or PuTTY sessions
-- Customizable theme
+- Everything encrypted on the phone, with an optional fingerprint or PIN lock
+- Encrypted backups, and sync through a folder (Syncthing, Nextcloud, etc)
+- Share a group of connections as a file
+- Import `~/.ssh/config`, `known_hosts` or PuTTY sessions
+- Dark and light themes
 
 ## Keyboard shortcuts
 
@@ -82,13 +82,13 @@ With a keyboard plugged in:
 
 ## Building
 
-You need the Android SDK and NDK. The first build also builds mosh-client from source for each ABI, which takes a few minutes.
+You need the Android SDK and NDK. The first build also builds mosh-client for each ABI, which takes a few minutes.
 
 ```sh
 ./gradlew :app:assembleDebug      # debug APK
-./gradlew :core:test              # the tests, against an SSH server inside the tests
-tools/test-server/run.sh          # a throwaway OpenSSH server on 127.0.0.1:2222, user and password whelk
-WHELK_OPENSSH=127.0.0.1:2222 ./gradlew :core:test   # the tests that need real OpenSSH too
+./gradlew :core:test              # tests
+tools/test-server/run.sh          # test OpenSSH server on 127.0.0.1:2222, user and password whelk
+WHELK_OPENSSH=127.0.0.1:2222 ./gradlew :core:test   # plus the tests that need it
 ```
 
 From the emulator, the test server is at 10.0.2.2:2222.
@@ -102,11 +102,11 @@ From the emulator, the test server is at 10.0.2.2:2222.
 
 ## Credits
 
-- The terminal is the emulator and view from [Termux](https://github.com/termux/termux-app), under the Apache License 2.0, changed so it can run over SSH and the rest. See [terminal/NOTICE](terminal/NOTICE).
+- The terminal is from [Termux](https://github.com/termux/termux-app), under the Apache License 2.0, changed to run over SSH. See [terminal/NOTICE](terminal/NOTICE).
 - [Mosh](https://mosh.org) is built from source, under the GPL version 3.
 - USB serial uses [usb-serial-for-android](https://github.com/mik3y/usb-serial-for-android), under the MIT licence.
 - Security keys use Yubico's [yubikit-android](https://github.com/Yubico/yubikit-android), under the Apache License 2.0.
-- The fonts are [Nerd Fonts](https://www.nerdfonts.com) builds of Fira Mono, JetBrains Mono, Hack and Cascadia Code, under their own licences, which are in `app/src/main/assets/fonts`.
+- The fonts are [Nerd Fonts](https://www.nerdfonts.com) builds of Fira Mono, JetBrains Mono, Hack and Cascadia Code, with their licences in `app/src/main/assets/fonts`.
 
 ## Licence
 

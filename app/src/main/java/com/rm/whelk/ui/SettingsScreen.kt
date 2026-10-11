@@ -50,8 +50,8 @@ fun SettingsScreen(nav: Nav) {
         SwitchRow("Ask before a server uses my keys", p.askBeforeAgent) { v -> Settings.update { it.copy(askBeforeAgent = v) } }
 
         Section("Sessions")
-        SwitchRow("Reconnect by itself after a drop", p.autoReconnect) { v -> Settings.update { it.copy(autoReconnect = v) } }
-        SwitchRow("Keep the phone awake while sessions are open", p.keepAwake) { v -> Settings.update { it.copy(keepAwake = v) } }
+        SwitchRow("Reconnect after a drop", p.autoReconnect) { v -> Settings.update { it.copy(autoReconnect = v) } }
+        SwitchRow("Stay awake while connected", p.keepAwake) { v -> Settings.update { it.copy(keepAwake = v) } }
         SwitchRow("Notify on bell when away", p.notifyBell) { v -> Settings.update { it.copy(notifyBell = v) } }
         val logFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
@@ -60,7 +60,7 @@ fun SettingsScreen(nav: Nav) {
             }
         }
         if (p.logFolder == null) {
-            TextButton(onClick = { logFolder.launch(null) }) { Text("Record every session to a folder") }
+            TextButton(onClick = { logFolder.launch(null) }) { Text("Record all sessions to a folder") }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -129,12 +129,12 @@ fun SettingsScreen(nav: Nav) {
         Choice("Terminal type", p.terminalType, listOf("xterm-256color", "xterm", "screen-256color", "tmux-256color", "linux", "vt100"), { it }) { v ->
             Settings.update { it.copy(terminalType = v) }
         }
-        SwitchRow("Plain quotes and dashes when pasting", p.straightenPaste) { v -> Settings.update { it.copy(straightenPaste = v) } }
+        SwitchRow("Paste plain quotes and dashes", p.straightenPaste) { v -> Settings.update { it.copy(straightenPaste = v) } }
         SwitchRow("Extra keys row", p.extraKeys) { v -> Settings.update { it.copy(extraKeys = v) } }
         if (p.extraKeys) TextButton(onClick = { nav.go(Screen.ExtraKeys) }) { Text("Change the extra keys") }
         SwitchRow("Back key sends Esc", p.backIsEscape) { v -> Settings.update { it.copy(backIsEscape = v) } }
         SwitchRow("Vibrate on bell", p.vibrateOnBell) { v -> Settings.update { it.copy(vibrateOnBell = v) } }
-        SwitchRow("Keep the screen on in a session", p.keepScreenOn) { v -> Settings.update { it.copy(keepScreenOn = v) } }
+        SwitchRow("Keep the screen on", p.keepScreenOn) { v -> Settings.update { it.copy(keepScreenOn = v) } }
     }
 }
 

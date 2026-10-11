@@ -214,12 +214,12 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             Choice("Backspace sends", backspace, Backspace.values().toList(), { it.label }) { backspace = it }
         }
         Choice("Colours", theme, listOf<String?>(null) + TerminalThemes.names(vault), { it ?: "Same as settings" }) { theme = it }
-        Field("Notify me when these show up, comma between", watchText, { watchText = it })
+        Field("Notify on these words, comma between", watchText, { watchText = it })
 
         if (type == ConnectionType.SSH || type == ConnectionType.MOSH) {
             Section("Advanced")
             Field("Attach to tmux session", tmux, { tmux = it })
-            Field("Environment variables, NAME=value", envText, { envText = it }, singleLine = false, minLines = 2, monospace = true)
+            Field("Environment, NAME=value", envText, { envText = it }, singleLine = false, minLines = 2, monospace = true)
             Field("Keepalive seconds (0 for off)", keepAlive, { keepAlive = it.filter(Char::isDigit) }, number = true)
             SwitchRow("Compression", compression) { compression = it }
             if (type == ConnectionType.SSH) SwitchRow("Forward agent", forwardAgent) { forwardAgent = it }
@@ -283,7 +283,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
             if (Keys.isEncrypted(key) && keyPassphrase() == null) {
                 privateKey = key
                 publicKey = ""
-                keyError = "Enter the key's passphrase below"
+                keyError = "Needs its passphrase"
             } else {
                 keyError = e.message ?: "Not a key Whelk can read"
             }
@@ -401,7 +401,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
             text = {
                 androidx.compose.foundation.layout.Column {
                     Choice("Type", ed25519, listOf(true, false), { if (it) "Ed25519" else "ECDSA (older keys)" }) { ed25519 = it }
-                    SwitchRow("Ask for the key's PIN each time", verify) { verify = it }
+                    SwitchRow("Ask for the PIN each time", verify) { verify = it }
                 }
             },
             confirmButton = {
@@ -438,7 +438,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         AlertDialog(
             onDismissRequest = { pastingCert = false },
             title = { Text("Certificate") },
-            text = { Field("The line from the -cert.pub file", text, { text = it }, singleLine = false, minLines = 4, monospace = true) },
+            text = { Field("Contents of the -cert.pub file", text, { text = it }, singleLine = false, minLines = 4, monospace = true) },
             confirmButton = {
                 TextButton(onClick = {
                     pastingCert = false
@@ -580,11 +580,11 @@ fun EditForwardScreen(nav: Nav, id: String?, connectionId: String?) {
         Field("Address", bindHost, { bindHost = it })
         Field("Port", bindPort, { bindPort = it.filter(Char::isDigit) }, number = true)
         if (kind != ForwardKind.DYNAMIC) {
-            Section(if (kind == ForwardKind.REMOTE) "Connect to, from this device" else "Connect to, from the server")
+            Section(if (kind == ForwardKind.REMOTE) "Connect to, from here" else "Connect to, from the server")
             Field("Host", destHost, { destHost = it })
             Field("Port", destPort, { destPort = it.filter(Char::isDigit) }, number = true)
         }
-        SwitchRow("Start when the connection opens", autoStart) { autoStart = it }
+        SwitchRow("Start with the connection", autoStart) { autoStart = it }
     }
     if (deleting) {
         ConfirmDelete(original.title(), onDismiss = { deleting = false }) {
@@ -670,7 +670,7 @@ private fun BluetoothChoice(address: String, deviceName: String, error: String?,
     val options = paired.map { it.address to it.name } +
         (if (address.isNotEmpty() && paired.none { it.address == address }) listOf(address to deviceName.ifEmpty { address }) else emptyList())
     if (options.isEmpty()) {
-        Text("No paired devices. Pair one in the phone's Bluetooth settings first.", modifier = Modifier.padding(vertical = 8.dp))
+        Text("No paired devices. Pair one in the phone's settings.", modifier = Modifier.padding(vertical = 8.dp))
         TextButton(onClick = { paired = Bluetooth.paired(context) }) { Text("Look again") }
         return
     }

@@ -316,7 +316,7 @@ fun BackupScreen(nav: Nav) {
         AlertDialog(
             onDismissRequest = { removing = null },
             title = { Text("Stop syncing?") },
-            text = { Text("The file stays in the folder, and everything stays here.") },
+            text = { Text("Nothing is deleted.") },
             confirmButton = { TextButton(onClick = { Sync.remove(t.id); removing = null }) { Text("Stop") } },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
         )

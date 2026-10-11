@@ -44,7 +44,7 @@ fun KnownHostsScreen(nav: Nav) {
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         )
-        if (hosts.isEmpty()) EmptyNote(if (query.isBlank()) "None yet. A server's key is saved the first time you trust it." else "No matches.")
+        if (hosts.isEmpty()) EmptyNote(if (query.isBlank()) "None yet." else "No matches.")
         for (h in hosts) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Column(Modifier.weight(1f)) {
@@ -63,7 +63,7 @@ fun KnownHostsScreen(nav: Nav) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { forgetting = null },
             title = { Text("Forget ${h.id.removeSuffix(":22")}?") },
-            text = { Text("You'll be asked to check its key again next time.") },
+            text = { Text("You'll check its key again next time.") },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     Store.update { it.put(h.copy(deleted = true, updated = now())) }

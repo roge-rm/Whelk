@@ -250,12 +250,12 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     DropdownMenuItem(text = { Text("Bigger text") }, onClick = { setFont(fontSize + 1) })
                     DropdownMenuItem(text = { Text("Smaller text") }, onClick = { setFont(fontSize - 1) })
                     DropdownMenuItem(
-                        text = { Text("Tell me about new output") },
+                        text = { Text("Notify on new output") },
                         trailingIcon = { androidx.compose.material3.Checkbox(checked = notifyActivity, onCheckedChange = null) },
                         onClick = { session.notifyActivity.value = !notifyActivity },
                     )
                     DropdownMenuItem(
-                        text = { Text("Tell me when output stops") },
+                        text = { Text("Notify when output stops") },
                         trailingIcon = { androidx.compose.material3.Checkbox(checked = notifyQuiet, onCheckedChange = null) },
                         onClick = { session.notifyQuiet.value = !notifyQuiet },
                     )

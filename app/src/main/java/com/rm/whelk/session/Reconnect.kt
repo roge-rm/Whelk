@@ -43,7 +43,7 @@ object Reconnect {
     fun schedule(s: Session) {
         if (s.reconnectTries >= MAX_TRIES) {
             s.reconnecting.value = null
-            if (Alerts.away(s)) Alerts.post(s, Alerts.KIND_DROPPED, s.title, "Disconnected, and reconnecting didn't work")
+            if (Alerts.away(s)) Alerts.post(s, Alerts.KIND_DROPPED, s.title, "Couldn't reconnect")
             return
         }
         val wait = DELAYS[minOf(s.reconnectTries, DELAYS.size - 1)] * 1000

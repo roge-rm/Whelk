@@ -32,7 +32,7 @@ import java.security.SecureRandom
  */
 class KeyJob(val sessionId: Int, val title: String, internal val work: (Ctap2Session) -> Any) {
     internal val done = CompletableDeferred<Result<Any>>()
-    val status = MutableStateFlow("Plug in your security key, or hold it to the back of the phone.")
+    val status = MutableStateFlow("Plug in your security key, or hold it to the phone.")
 }
 
 object SecurityKey {
