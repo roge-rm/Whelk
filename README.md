@@ -12,6 +12,15 @@ Dan
 
 ---
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="screenshots/connections.png" width="100%" alt="Connections, with recent ones at the top and groups"></td>
+    <td align="center" width="50%"><img src="screenshots/terminal.png" width="100%" alt="vim in an SSH session, with the extra keys above the keyboard"></td>
+  </tr>
+</table>
+
 ## What's in it
 
 ### Connections

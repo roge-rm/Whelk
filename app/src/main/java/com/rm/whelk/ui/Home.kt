@@ -57,7 +57,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -172,7 +171,7 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
         all.sortedWith(compareByDescending<Connection> { it.lastUsed }.thenBy { it.title(vault).lowercase() }).take(RECENT)
     } else emptyList()
     val rest = if (browsing) shown.filter { c -> recent.none { it.id == c.id } } else shown
-    var showAll by rememberSaveable { mutableStateOf(false) }
+    var showAll by showAllConnections
 
     LazyColumn(Modifier.fillMaxSize()) {
         if (sessions.isNotEmpty()) {
@@ -287,6 +286,9 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
 }
 
 private const val RECENT = 5
+
+/** Whether the connections past the recent ones are showing. Kept out here so it lasts while other screens are open. */
+private val showAllConnections = mutableStateOf(false)
 
 fun LazyListScope.header(text: String) {
     item(key = "h$text") {

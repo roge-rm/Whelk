@@ -187,6 +187,12 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
         }
     }
 
+    // Leaving the terminal puts the keyboard away.
+    val window = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(Unit) {
+        onDispose { context.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(window.windowToken, 0) }
+    }
+
     Column(Modifier.fillMaxSize().background(Color(theme.background)).statusBarsPadding().navigationBarsPadding().imePadding()) {
         // Top bar: back, the session (tap to switch), and the menu.
         Row(
