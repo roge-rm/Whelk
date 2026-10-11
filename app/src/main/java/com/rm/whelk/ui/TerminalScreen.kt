@@ -334,10 +334,11 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                     modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
                 ) {
                     Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(reconnecting ?: "Disconnected", Modifier.padding(horizontal = 8.dp))
-                        Button(shape = MaterialTheme.shapes.small, onClick = { nav.swap(Screen.Terminal(Sessions.reconnect(context, session).id)) }) { Text("Reconnect") }
+                        // The message takes what's left, so the buttons never squeeze.
+                        Text(reconnecting ?: "Disconnected", Modifier.weight(1f, fill = false).padding(horizontal = 8.dp))
+                        Button(shape = MaterialTheme.shapes.small, onClick = { nav.swap(Screen.Terminal(Sessions.reconnect(context, session).id)) }) { Text("Reconnect", maxLines = 1) }
                         Gap()
-                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { Sessions.close(session) }) { Text("Close") }
+                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { Sessions.close(session) }) { Text("Close", maxLines = 1) }
                     }
                 }
             }

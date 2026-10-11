@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
@@ -55,6 +57,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +68,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.combine
 import com.rm.whelk.core.Connection
 import com.rm.whelk.core.ConnectionType
 import com.rm.whelk.core.Vault
@@ -162,9 +166,13 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
         (group == null || group in c.groupIds) &&
             (query.isBlank() || c.title(vault).contains(query, ignoreCase = true) || c.host.contains(query, ignoreCase = true))
     }.sortedBy { it.title(vault).lowercase() }
-    val recent = if (query.isBlank() && group == null && all.size > 5) {
-        all.filter { it.lastUsed > 0 }.sortedByDescending { it.lastUsed }.take(3)
+    // With no search or group picked, the five used last come first and the rest wait behind a button.
+    val browsing = query.isBlank() && group == null
+    val recent = if (browsing) {
+        all.sortedWith(compareByDescending<Connection> { it.lastUsed }.thenBy { it.title(vault).lowercase() }).take(RECENT)
     } else emptyList()
+    val rest = if (browsing) shown.filter { c -> recent.none { it.id == c.id } } else shown
+    var showAll by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(Modifier.fillMaxSize()) {
         if (sessions.isNotEmpty()) {
@@ -226,18 +234,33 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
                 )
             }
         }
-        item {
-            ConnectionRow(null, vault, nav, onConnect = { connect(nav, context, null) }, onDelete = {})
+        val localShell: LazyListScope.() -> Unit = {
+            item(key = "local") { ConnectionRow(null, vault, nav, onConnect = { connect(nav, context, null) }, onDelete = {}) }
         }
+        if (!browsing) localShell()
         if (recent.isNotEmpty()) {
             header("Recent")
             items(recent, key = { "r" + it.id }) { c ->
                 ConnectionRow(c, vault, nav, onConnect = { connect(nav, context, c) }, onDelete = { deleting = c })
             }
-            header("All")
         }
-        items(shown, key = { it.id }) { c ->
-            ConnectionRow(c, vault, nav, onConnect = { connect(nav, context, c) }, onDelete = { deleting = c })
+        if (browsing) {
+            item(key = "all") {
+                TextButton(
+                    onClick = { showAll = !showAll },
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Text(if (showAll) "Show fewer" else "Show ${rest.size + 1} more", Modifier.weight(1f))
+                    Icon(if (showAll) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
+                }
+            }
+        }
+        if (browsing && showAll) localShell()
+        if (!browsing || showAll) {
+            items(rest, key = { it.id }) { c ->
+                ConnectionRow(c, vault, nav, onConnect = { connect(nav, context, c) }, onDelete = { deleting = c })
+            }
         }
         if (all.isEmpty()) {
             item {
@@ -262,6 +285,8 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
         }
     }
 }
+
+private const val RECENT = 5
 
 fun LazyListScope.header(text: String) {
     item(key = "h$text") {
@@ -327,7 +352,11 @@ private fun ConnectionRow(c: Connection?, vault: Vault, nav: Nav, onConnect: () 
         }
     }
     val groupColour = c?.groupIds?.firstNotNullOfOrNull { vault.group(it)?.colour?.takeIf { col -> col != 0L } }
-    val open = c != null && sessions.any { it.connection?.id == c.id }
+    // A dot while any of its sessions is connecting or connected.
+    val open by remember(sessions, c?.id) {
+        val states = sessions.filter { c != null && it.connection?.id == c.id }.map { it.state }
+        combine(states) { all -> all.any { it != SessionState.CLOSED } }
+    }.collectAsState(false)
     ListItem(
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
