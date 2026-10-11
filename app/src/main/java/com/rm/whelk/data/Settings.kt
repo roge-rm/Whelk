@@ -46,8 +46,6 @@ data class Prefs(
     /** Ask each time a server wants to sign with a key through agent forwarding. */
     val askBeforeAgent: Boolean = true,
     val appTheme: AppTheme = AppTheme.DARK,
-    /** Colours from the wallpaper, on Android 12 and up. */
-    val dynamicColour: Boolean = false,
     /** The row of keys above the keyboard, in order. */
     val extraKeyList: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaults,
     val notifyBell: Boolean = true,
@@ -83,7 +81,6 @@ object Settings {
             swipe = runCatching { Swipe.valueOf(prefs.getString("swipe", null)!!) }.getOrDefault(d.swipe),
             askBeforeAgent = prefs.getBoolean("askBeforeAgent", d.askBeforeAgent),
             appTheme = runCatching { AppTheme.valueOf(prefs.getString("appTheme", null)!!) }.getOrDefault(d.appTheme),
-            dynamicColour = prefs.getBoolean("dynamicColour", d.dynamicColour),
             extraKeyList = prefs.getString("extraKeyList", null)?.let { j ->
                 runCatching { Vault.json.decodeFromString(ListSerializer(ExtraKey.serializer()), j) }.getOrNull()
             } ?: d.extraKeyList,
@@ -113,7 +110,6 @@ object Settings {
             .putString("swipe", p.swipe.name)
             .putBoolean("askBeforeAgent", p.askBeforeAgent)
             .putString("appTheme", p.appTheme.name)
-            .putBoolean("dynamicColour", p.dynamicColour)
             .putBoolean("notifyBell", p.notifyBell)
             .putBoolean("autoReconnect", p.autoReconnect)
             .putBoolean("keepAwake", p.keepAwake)

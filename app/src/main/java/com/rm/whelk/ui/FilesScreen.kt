@@ -237,7 +237,7 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
             TopAppBar(
                 title = {
                     Column(Modifier.combinedClickableCompat(onClick = { goTo = true })) {
-                        Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        CursorTitle(title, MaterialTheme.typography.titleMedium)
                         Text(path ?: "", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.StartEllipsis)
                     }
                 },

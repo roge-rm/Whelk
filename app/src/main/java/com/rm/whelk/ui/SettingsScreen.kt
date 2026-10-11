@@ -29,14 +29,11 @@ fun SettingsScreen(nav: Nav) {
     val p by Settings.flow.collectAsState()
     val context = LocalContext.current
     FormScreen(title = "Settings", onBack = { nav.back() }, onSave = null) {
-        OutlinedButton(onClick = { nav.go(Screen.Backup) }, modifier = Modifier.fillMaxWidth()) { Text("Backup, sync and import") }
-        OutlinedButton(onClick = { nav.go(Screen.KnownHosts) }, modifier = Modifier.fillMaxWidth()) { Text("Known hosts") }
+        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { nav.go(Screen.Backup) }, modifier = Modifier.fillMaxWidth()) { Text("Backup, sync and import") }
+        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { nav.go(Screen.KnownHosts) }, modifier = Modifier.fillMaxWidth()) { Text("Known hosts") }
 
         Section("Look")
         Choice("App theme", p.appTheme, AppTheme.values().toList(), { it.label }) { v -> Settings.update { it.copy(appTheme = v) } }
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
-            SwitchRow("Colours from the wallpaper", p.dynamicColour) { v -> Settings.update { it.copy(dynamicColour = v) } }
-        }
 
         Section("Security")
         Choice("Lock", p.lockAfter, listOf(-1, 0, 1, 5, 15, 60), ::lockName) { v ->
@@ -78,9 +75,9 @@ fun SettingsScreen(nav: Nav) {
         Section("Terminal")
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Text size", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-            OutlinedButton(onClick = { Settings.update { it.copy(fontSize = (it.fontSize - 1).coerceAtLeast(6)) } }) { Text("−") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { Settings.update { it.copy(fontSize = (it.fontSize - 1).coerceAtLeast(6)) } }) { Text("−") }
             Text("${p.fontSize}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(onClick = { Settings.update { it.copy(fontSize = (it.fontSize + 1).coerceAtMost(40)) } }) { Text("+") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { Settings.update { it.copy(fontSize = (it.fontSize + 1).coerceAtMost(40)) } }) { Text("+") }
         }
         val fontFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult

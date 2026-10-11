@@ -50,7 +50,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.rm.whelk.core.Connection
 import com.rm.whelk.core.ConnectionType
 import com.rm.whelk.core.Vault
@@ -81,8 +81,8 @@ fun HomeScreen(nav: Nav, tab: Tab) {
     val vault by Store.vault.collectAsState()
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (tab == Tab.CONNECTIONS) "Whelk" else tab.label) },
+            WhelkTopBar(
+                title = if (tab == Tab.CONNECTIONS) "Whelk" else tab.label,
                 actions = {
                     IconButton(onClick = { nav.go(Screen.Settings) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -103,7 +103,10 @@ fun HomeScreen(nav: Nav, tab: Tab) {
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
+            FloatingActionButton(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                onClick = {
                 nav.go(
                     when (tab) {
                         Tab.CONNECTIONS -> Screen.EditConnection(null)
@@ -211,7 +214,7 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
                     headlineContent = { Text("Connect to ${q.label}") },
                     supportingContent = { Text("Saved to your connections") },
                     leadingContent = {
-                        Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     },
@@ -263,8 +266,8 @@ private fun ConnectionsTab(nav: Nav, vault: Vault) {
 fun LazyListScope.header(text: String) {
     item(key = "h$text") {
         Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
+            text.uppercase(),
+            style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp),
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
         )
@@ -293,10 +296,10 @@ private fun SessionRow(s: Session, onOpen: () -> Unit) {
         leadingContent = {
             val colour = when (state) {
                 SessionState.CONNECTING -> MaterialTheme.colorScheme.secondary
-                SessionState.OPEN -> Color(0xFF7BC67B)
+                SessionState.OPEN -> MaterialTheme.colorScheme.primary
                 SessionState.CLOSED -> MaterialTheme.colorScheme.outline
             }
-            Box(Modifier.size(12.dp).background(colour, CircleShape))
+            Box(Modifier.size(10.dp).background(colour, CircleShape))
         },
         trailingContent = {
             IconButton(onClick = { Sessions.close(s) }) { Icon(Icons.Default.Close, contentDescription = "Disconnect") }
@@ -309,33 +312,38 @@ private fun SessionRow(s: Session, onOpen: () -> Unit) {
 @Composable
 private fun ConnectionRow(c: Connection?, vault: Vault, nav: Nav, onConnect: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
+    val sessions by Sessions.list.collectAsState()
     val subtitle = when {
-        c == null -> "This device"
-        c.type == ConnectionType.LOCAL -> "This device"
-        c.type == ConnectionType.SERIAL -> "USB serial · " + c.line.describe()
-        c.type == ConnectionType.BLUETOOTH -> "Bluetooth serial · " + c.device
+        c == null || c.type == ConnectionType.LOCAL -> "local"
+        c.type == ConnectionType.SERIAL -> "usb " + c.line.describe()
+        c.type == ConnectionType.BLUETOOTH -> "bt " + c.device
         else -> buildString {
-            append(c.type.label)
-            append(" · ")
+            append(if (c.type == ConnectionType.TCP) "tcp" else c.type.label.lowercase())
+            append(" ")
+            vault.identity(c.identityId)?.username?.takeIf { it.isNotEmpty() }?.let { append(it).append("@") }
             append(c.host)
             if (c.port != c.type.defaultPort) append(":").append(c.port)
             vault.connection(c.viaId)?.let { append(" via ").append(it.title(vault)) }
         }
     }
     val groupColour = c?.groupIds?.firstNotNullOfOrNull { vault.group(it)?.colour?.takeIf { col -> col != 0L } }
+    val open = c != null && sessions.any { it.connection?.id == c.id }
     ListItem(
-        headlineContent = { Text(c?.title(vault) ?: "Local shell", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(c?.title(vault) ?: "Local shell", maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (open) Box(Modifier.padding(start = 8.dp).size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+            }
+        },
+        supportingContent = {
+            Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = monoFamily(), style = MaterialTheme.typography.bodyMedium)
+        },
         leadingContent = {
             Box(
-                Modifier.size(36.dp).background(
-                    if (groupColour != null) Color(groupColour) else MaterialTheme.colorScheme.secondaryContainer,
-                    CircleShape,
+                Modifier.size(width = 4.dp, height = 40.dp).background(
+                    if (groupColour != null) Color(groupColour) else MaterialTheme.colorScheme.outlineVariant,
                 ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
+            )
         },
         trailingContent = if (c != null) {
             {

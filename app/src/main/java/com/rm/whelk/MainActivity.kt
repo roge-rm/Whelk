@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import android.view.WindowManager
@@ -112,6 +114,14 @@ class MainActivity : FragmentActivity() {
             .setPrimaryClip(android.content.ClipData.newHtmlText("web", text, html))
     }
 
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
+    }
+
     fun unlock() {
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
@@ -129,14 +139,12 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        }
+        // The splash is only for opening from the launcher; widgets, shortcuts and notifications go straight in.
+        val showSplash = savedInstanceState == null && intent?.action == android.content.Intent.ACTION_MAIN
         debugClip(intent)
         handle(intent)
         setContent {
+            var splash by remember { mutableStateOf(showSplash) }
             WhelkTheme {
                 Surface(Modifier.fillMaxSize()) {
                     val locked by Lock.locked.collectAsState()
@@ -148,10 +156,12 @@ class MainActivity : FragmentActivity() {
                     }
                     if (locked) {
                         LockScreen(onUnlock = ::unlock)
-                        LaunchedEffect(Unit) { unlock() }
+                        if (!splash) LaunchedEffect(Unit) { unlock() }
                     } else {
                         App(nav)
                     }
+                    if (splash) com.rm.whelk.ui.Splash(onDone = { splash = false })
+                    else LaunchedEffect(Unit) { askForNotifications() }
                 }
             }
         }

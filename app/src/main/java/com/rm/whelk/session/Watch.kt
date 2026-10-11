@@ -42,6 +42,7 @@ object Alerts {
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val n = NotificationCompat.Builder(context, WhelkApp.CHANNEL_ALERTS)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(0xFFC6F24E.toInt())
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

@@ -71,6 +71,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         // mosh-client runs as a program, so it has to be unpacked to the native library folder.

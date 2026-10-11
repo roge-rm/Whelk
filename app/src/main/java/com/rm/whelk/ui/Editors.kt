@@ -356,22 +356,22 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
             Row(Modifier.padding(8.dp)) { CircularProgressIndicator(Modifier.size(24.dp)); Gap(); Text("Making a key…") }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { chooseKind = true }, enabled = !generating) { Text("Generate") }
-            OutlinedButton(onClick = { makingSk = true }, enabled = !generating) { Text("Security key") }
-            OutlinedButton(onClick = { importKey.launch(arrayOf("*/*")) }) { Text("Import file") }
-            OutlinedButton(onClick = { pasting = true }) { Text("Paste") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { chooseKind = true }, enabled = !generating) { Text("Generate") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { makingSk = true }, enabled = !generating) { Text("Security key") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { importKey.launch(arrayOf("*/*")) }) { Text("Import file") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { pasting = true }) { Text("Paste") }
             if (publicKey.isNotBlank()) {
-                OutlinedButton(onClick = {
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = {
                     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Public key", publicKey))
                     Toast.makeText(context, "Public key copied", Toast.LENGTH_SHORT).show()
                 }) { Text("Copy public key") }
-                OutlinedButton(onClick = {
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = {
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, publicKey)
                     context.startActivity(Intent.createChooser(send, "Share public key"))
                 }) { Text("Share public key") }
             }
             if (privateKey.isNotBlank()) {
-                OutlinedButton(onClick = { privateKey = ""; publicKey = ""; passphrase = ""; passphraseSaved = false; certificate = ""; keyError = null }) { Text("Remove key") }
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { privateKey = ""; publicKey = ""; passphrase = ""; passphraseSaved = false; certificate = ""; keyError = null }) { Text("Remove key") }
             }
         }
 
@@ -385,9 +385,9 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
                 )
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { importCert.launch(arrayOf("*/*")) }) { Text(if (certificate.isBlank()) "Import file" else "Replace") }
-                OutlinedButton(onClick = { pastingCert = true }) { Text("Paste") }
-                if (certificate.isNotBlank()) OutlinedButton(onClick = { certificate = "" }) { Text("Remove") }
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { importCert.launch(arrayOf("*/*")) }) { Text(if (certificate.isBlank()) "Import file" else "Replace") }
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { pastingCert = true }) { Text("Paste") }
+                if (certificate.isNotBlank()) OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { certificate = "" }) { Text("Remove") }
             }
         }
     }
@@ -664,7 +664,7 @@ private fun BluetoothChoice(address: String, deviceName: String, error: String?,
         paired = Bluetooth.paired(context)
     }
     if (!allowed) {
-        OutlinedButton(onClick = { ask.launch(android.Manifest.permission.BLUETOOTH_CONNECT) }) { Text("Allow Bluetooth") }
+        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { ask.launch(android.Manifest.permission.BLUETOOTH_CONNECT) }) { Text("Allow Bluetooth") }
         return
     }
     val options = paired.map { it.address to it.name } +

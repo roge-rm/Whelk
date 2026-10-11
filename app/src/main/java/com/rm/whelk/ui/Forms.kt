@@ -1,6 +1,13 @@
 package com.rm.whelk.ui
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -34,6 +41,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -51,8 +63,8 @@ fun FormScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title) },
+            WhelkTopBar(
+                title = title,
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
@@ -151,11 +163,39 @@ fun <T> Choice(label: String, value: T, options: List<T>, name: (T) -> String, o
 @Composable
 fun Section(text: String) {
     Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
+        text.uppercase(),
+        style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp),
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
     )
+}
+
+/** The title lowercase in mono with a blinking block cursor after it. */
+@Composable
+fun CursorTitle(text: String, style: TextStyle = MaterialTheme.typography.titleLarge) {
+    val blink = rememberInfiniteTransition(label = "cursor")
+    val on by blink.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(keyframes { durationMillis = 1060; 1f at 529; 0f at 530 }),
+        label = "cursor",
+    )
+    val colour = MaterialTheme.colorScheme.primary
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text.lowercase(), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        val h = with(LocalDensity.current) { style.fontSize.toDp() }
+        Box(Modifier.padding(start = 3.dp).size(width = h * 0.55f, height = h * 1.05f).graphicsLayer { alpha = on }.background(colour))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WhelkTopBar(
+    title: String,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    TopAppBar(title = { CursorTitle(title) }, navigationIcon = navigationIcon, actions = actions)
 }
 
 /**

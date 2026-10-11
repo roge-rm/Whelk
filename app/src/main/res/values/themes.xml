@@ -4,5 +4,6 @@
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
     </style>
-    <color name="background">#FF121417</color>
+    <color name="background">#FF1B2A2C</color>
+    <color name="lime">#FFC6F24E</color>
 </resources>

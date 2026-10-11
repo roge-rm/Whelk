@@ -335,9 +335,9 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                 ) {
                     Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(reconnecting ?: "Disconnected", Modifier.padding(horizontal = 8.dp))
-                        Button(onClick = { nav.swap(Screen.Terminal(Sessions.reconnect(context, session).id)) }) { Text("Reconnect") }
+                        Button(shape = MaterialTheme.shapes.small, onClick = { nav.swap(Screen.Terminal(Sessions.reconnect(context, session).id)) }) { Text("Reconnect") }
                         Gap()
-                        OutlinedButton(onClick = { Sessions.close(session) }) { Text("Close") }
+                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { Sessions.close(session) }) { Text("Close") }
                     }
                 }
             }

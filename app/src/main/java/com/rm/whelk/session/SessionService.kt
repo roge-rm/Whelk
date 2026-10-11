@@ -82,6 +82,7 @@ class SessionService : Service() {
         }.joinToString(" · ")
         return NotificationCompat.Builder(this, WhelkApp.CHANNEL_SESSIONS)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(0xFFC6F24E.toInt())
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(open)

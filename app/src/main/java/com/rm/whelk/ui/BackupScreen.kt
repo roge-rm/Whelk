@@ -134,24 +134,24 @@ fun BackupScreen(nav: Nav) {
     FormScreen(title = "Backup, sync and import", onBack = { nav.back() }, onSave = null) {
         Section("Backup")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = {
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = {
                 val day = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
                 exportTo.launch("whelk-backup-$day.whelk")
             }) { Text("Export backup") }
-            OutlinedButton(onClick = { restoreFrom.launch(arrayOf("*/*")) }) { Text("Restore backup") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { restoreFrom.launch(arrayOf("*/*")) }) { Text("Restore backup") }
         }
 
         Section("Import")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { importFile.launch(arrayOf("*/*")) }) { Text("Import a file") }
-            OutlinedButton(onClick = { importFolder.launch(null) }) { Text("Import an .ssh folder") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { importFile.launch(arrayOf("*/*")) }) { Text("Import a file") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { importFolder.launch(null) }) { Text("Import an .ssh folder") }
         }
 
         Section("Sync")
         val personal = targets.filter { !it.team }
         for (t in personal) TargetRow(t, "Everything", onRemove = { removing = t })
         if (personal.isEmpty()) {
-            OutlinedButton(onClick = { syncFolder.launch(null) }) { Text("Sync through a folder") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { syncFolder.launch(null) }) { Text("Sync through a folder") }
         }
 
         Section("Teams")
@@ -163,17 +163,17 @@ fun BackupScreen(nav: Nav) {
         val shareable = vault.liveGroups().filter { g -> teams.none { it.groupId == g.id } }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (g in shareable) {
-                OutlinedButton(onClick = {
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = {
                     shareGroupId = g.id
                     teamFolder.launch(null)
                 }) { Text("Share ${g.name.ifEmpty { "group" }}") }
             }
-            OutlinedButton(onClick = { joinPicker.launch(null) }) { Text("Join a team") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { joinPicker.launch(null) }) { Text("Join a team") }
         }
 
         if (targets.isNotEmpty()) {
             Row(Modifier.padding(top = 16.dp)) {
-                OutlinedButton(onClick = { Sync.syncAll() }, enabled = !running) { Text(if (running) "Syncing…" else "Sync now") }
+                OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { Sync.syncAll() }, enabled = !running) { Text(if (running) "Syncing…" else "Sync now") }
             }
         }
     }

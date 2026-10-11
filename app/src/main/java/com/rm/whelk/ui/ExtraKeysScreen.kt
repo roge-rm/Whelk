@@ -60,9 +60,9 @@ fun ExtraKeysScreen(nav: Nav) {
             HorizontalDivider()
         }
         Row(Modifier.padding(top = 12.dp)) {
-            OutlinedButton(onClick = { adding = true }) { Text("Add a key") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { adding = true }) { Text("Add a key") }
             Gap()
-            OutlinedButton(onClick = { custom = true }) { Text("Add your own") }
+            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { custom = true }) { Text("Add your own") }
             Gap()
             TextButton(onClick = { set(ExtraKeys.defaults) }) { Text("Reset") }
         }
