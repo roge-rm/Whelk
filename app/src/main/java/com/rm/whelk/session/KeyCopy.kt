@@ -32,6 +32,7 @@ object KeyCopy {
         thread(name = "KeyCopy") {
             val message = try {
                 val target = SshTarget.from(Store.vault.value, connection) ?: throw IllegalStateException("The jump hosts go round in a loop")
+                com.rm.whelk.data.TeamReview.confirm(promptId, connection, Store.vault.value)
                 val withoutKey = target.copy(privateKey = null, passphrase = null, certificate = null, hardwareKey = null)
                 SshConnection(withoutKey, SessionPrompter(promptId) {}, Store.hostKeys, null, SecurityKey.Signer(promptId), HardwareKeys::provider).use { c ->
                     c.connect()

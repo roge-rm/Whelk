@@ -44,10 +44,16 @@ object HardwareKeys {
 
     private fun store() = KeyStore.getInstance(STORE).apply { load(null) }
 
-    fun has(alias: String): Boolean = runCatching { store().containsAlias(alias) }.getOrDefault(false)
+    /**
+     * Whether [alias] names one of our SSH keys. Aliases come from synced data, and the Keystore
+     * holds other keys too, like the vault's, so anything else is never looked up or deleted.
+     */
+    private fun ours(alias: String) = alias.startsWith(PREFIX) && alias.length <= PREFIX.length + 40
+
+    fun has(alias: String): Boolean = ours(alias) && runCatching { store().containsAlias(alias) }.getOrDefault(false)
 
     fun delete(alias: String) {
-        runCatching { store().deleteEntry(alias) }
+        if (ours(alias)) runCatching { store().deleteEntry(alias) }
     }
 
     /** Makes a key and returns its alias and OpenSSH public key line. Blocks; call off the main thread. */
@@ -88,6 +94,7 @@ object HardwareKeys {
 
     /** sshj's view of the key. Asks to unlock, if needed, when it's about to sign. */
     fun provider(alias: String): KeyProvider {
+        if (!ours(alias)) throw IOException("This key is kept on another phone")
         val entry = store().getEntry(alias, null) as? KeyStore.PrivateKeyEntry
             ?: throw IOException("This key is kept on another phone")
         val public = entry.certificate.publicKey

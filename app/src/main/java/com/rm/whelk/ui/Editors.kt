@@ -78,6 +78,7 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
     var snippetId by remember { mutableStateOf(original.startSnippetId) }
     var keepAlive by remember { mutableStateOf(original.keepAlive.toString()) }
     var compression by remember { mutableStateOf(original.compression) }
+    var legacyAlgorithms by remember { mutableStateOf(original.legacyAlgorithms) }
     var theme by remember { mutableStateOf(original.theme) }
     var forwardAgent by remember { mutableStateOf(original.forwardAgent) }
     var moshServer by remember { mutableStateOf(original.moshServer.orEmpty()) }
@@ -125,6 +126,7 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             startSnippetId = snippetId,
             keepAlive = keepAlive.trim().toIntOrNull()?.coerceIn(0, 3600) ?: 30,
             compression = compression,
+            legacyAlgorithms = legacyAlgorithms,
             theme = theme,
             forwardAgent = forwardAgent && type == ConnectionType.SSH,
             moshServer = moshServer.trim().ifEmpty { null },
@@ -222,8 +224,13 @@ fun EditConnectionScreen(nav: Nav, id: String?) {
             Field("Environment, NAME=value", envText, { envText = it }, singleLine = false, minLines = 2, monospace = true)
             Field("Keepalive seconds (0 for off)", keepAlive, { keepAlive = it.filter(Char::isDigit) }, number = true)
             SwitchRow("Compression", compression) { compression = it }
+            SwitchRow("Allow old, weak algorithms", legacyAlgorithms) { legacyAlgorithms = it }
+            if (legacyAlgorithms) Note("Only for old devices that can't connect otherwise")
             if (type == ConnectionType.SSH) SwitchRow("Forward agent", forwardAgent) { forwardAgent = it }
             Choice("Proxy", proxy.type, com.rm.whelk.core.ProxyType.values().toList(), { it.label }) { proxy = proxy.copy(type = it) }
+            if (type == ConnectionType.MOSH && proxy.type != com.rm.whelk.core.ProxyType.NONE) {
+                Note("Mosh logs in through the proxy, then connects directly")
+            }
             if (proxy.type != com.rm.whelk.core.ProxyType.NONE) {
                 Field("Proxy host", proxy.host, { proxy = proxy.copy(host = it.trim()) })
                 Field("Proxy port", proxy.port.toString(), { t -> proxy = proxy.copy(port = t.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 65535) ?: proxy.port) }, number = true)
@@ -257,6 +264,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
     var privateKey by remember { mutableStateOf(original.privateKey.orEmpty()) }
     var publicKey by remember { mutableStateOf(original.publicKey.orEmpty()) }
     var hardwareKey by remember { mutableStateOf(original.hardwareKey) }
+    var offerToAll by remember { mutableStateOf(original.offerToAll) }
     val hasKey = privateKey.isNotBlank() || hardwareKey != null
 
     /** Drops a phone key made in this editor that hasn't been saved; the saved one goes on save. */
@@ -333,6 +341,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
             privateKey = privateKey.ifBlank { null }.takeIf { hardwareKey == null },
             publicKey = publicKey.ifBlank { null },
             hardwareKey = hardwareKey,
+            offerToAll = offerToAll && privateKey.isNotBlank(),
             passphrase = keyPassphrase().takeIf { privateKey.isNotBlank() },
             certificate = certificate.trim().ifEmpty { null }.takeIf { privateKey.isNotBlank() },
             updated = now(),
@@ -417,6 +426,7 @@ fun EditIdentityScreen(nav: Nav, id: String?) {
         }
 
         if (privateKey.isNotBlank()) {
+            SwitchRow("Offer to every server through agent forwarding", offerToAll) { offerToAll = it }
             Section("Certificate")
             if (certificate.isNotBlank()) {
                 Text(

@@ -259,6 +259,11 @@ public abstract class TerminalSession extends TerminalOutput {
     }
 
     @Override
+    public void onRemoteCopy(String text) {
+        mClient.onRemoteCopyToClipboard(this, text);
+    }
+
+    @Override
     public void onNotify(String title, String body) {
         mClient.onNotify(this, title, body);
     }

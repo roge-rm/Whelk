@@ -29,7 +29,7 @@ class Sftp(connection: SshConnection) : Closeable {
     fun canonical(path: String): String = sftp.canonicalize(path)
 
     /** The folder's contents, folders first, then by name. Links to folders count as folders. */
-    fun list(path: String): List<RemoteEntry> = sftp.ls(path).map { r ->
+    fun list(path: String): List<RemoteEntry> = sftp.ls(path).filter { safeName(it.name) != null }.map { r ->
         val a = r.attributes
         val link = a.type == FileMode.Type.SYMLINK
         val dir = a.type == FileMode.Type.DIRECTORY ||
@@ -107,5 +107,14 @@ class Sftp(connection: SshConnection) : Closeable {
         }
 
         fun join(dir: String, name: String): String = if (dir.endsWith("/")) dir + name else "$dir/$name"
+
+        /**
+         * A file name that's safe to use as one part of a path, or null. Names from a server or
+         * another app could hold slashes or "..", which would reach outside the folder they go in.
+         */
+        fun safeName(name: String): String? {
+            val last = name.substringAfterLast('/').substringAfterLast('\\')
+            return last.takeIf { it.isNotEmpty() && it != "." && it != ".." && '\u0000' !in it && last == name }
+        }
     }
 }

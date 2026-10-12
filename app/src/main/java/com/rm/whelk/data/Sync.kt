@@ -126,9 +126,16 @@ object Sync {
             val conflicts = files.filter { it.name != t.file }
 
             var remote = Vault()
+            val unreadable = HashSet<String>()
             for (f in files) {
-                val bytes = appContext.contentResolver.openInputStream(f.uri)!!.use { it.readBytes() }
-                remote = remote.merge(Vault.fromJson(Sealed.open(bytes, t.passphrase.toCharArray()).toString(Charsets.UTF_8)))
+                try {
+                    val bytes = appContext.contentResolver.openInputStream(f.uri)!!.use { it.readBytes() }
+                    remote = remote.merge(Vault.fromJson(Sealed.open(bytes, t.passphrase.toCharArray()).toString(Charsets.UTF_8)))
+                } catch (e: Exception) {
+                    // A conflict copy that won't open is left alone; only the main file has to read.
+                    if (f == main) throw e
+                    f.name?.let { unreadable += it }
+                }
             }
 
             var groupId = t.groupId
@@ -138,6 +145,7 @@ object Sync {
             }
 
             val incoming = if (t.team) remote.teamPart(groupId!!) else remote
+            if (t.team) TeamReview.noteChanges(Store.vault.value, incoming)
             // Items from a copy without secrets get this phone's back.
             Store.update { it.merge(incoming).withSecretsFrom(it) }
 
@@ -150,15 +158,17 @@ object Sync {
                     ?: throw IllegalStateException("Can't make ${t.file}")
                 appContext.contentResolver.openOutputStream(target.uri, "wt")!!.use { it.write(sealed) }
                 // The conflicted copies are merged in now.
-                for (c in conflicts) runCatching { c.delete() }
+                for (c in conflicts) if (c.name !in unreadable) runCatching { c.delete() }
             }
             record(t.id) { it.copy(lastSync = now(), lastError = null) }
         } catch (e: Exception) {
-            Log.w(TAG, "Sync failed", e)
+            // Parse errors quote the decrypted text, so only their kind is logged and shown.
+            val parse = e is kotlinx.serialization.SerializationException || e is IllegalArgumentException
+            if (parse) Log.w(TAG, "Sync failed: ${e.javaClass.simpleName}") else Log.w(TAG, "Sync failed", e)
             val message = when (e) {
                 is Sealed.WrongPassphrase -> "Wrong passphrase, or the file is damaged"
                 is SecurityException -> "No access to the folder. Pick it again."
-                else -> e.message ?: e.javaClass.simpleName
+                else -> if (parse) "The sync file couldn't be read" else e.message ?: e.javaClass.simpleName
             }
             record(t.id) { it.copy(lastError = message) }
         }

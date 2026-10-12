@@ -54,7 +54,7 @@ You can also download the APK from the [Releases](https://github.com/roge-rm/Whe
 - OpenSSH certificates
 - Keys made in the phone's secure hardware, unlocked with your fingerprint or screen lock
 - FIDO security keys over USB or NFC
-- Agent forwarding, asking before each use
+- Agent forwarding, offering only the connection's own key unless you choose more, and asking before each use
 
 ### The terminal
 
@@ -65,6 +65,7 @@ You can also download the APK from the [Releases](https://github.com/roge-rm/Whe
 - Pinch or volume keys for text size
 - Swipe to switch sessions, or tmux and screen windows
 - Paste without the hidden characters and curly quotes web pages bring along
+- Asks before a server copies to your clipboard, and before pasting several lines that would each run
 - Open links on screen
 - Several sessions at once, and typing into several at once
 - Record sessions to text files

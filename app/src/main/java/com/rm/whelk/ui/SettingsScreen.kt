@@ -132,6 +132,8 @@ fun SettingsScreen(nav: Nav) {
             Settings.update { it.copy(terminalType = v) }
         }
         SwitchRow("Paste plain quotes and dashes", p.straightenPaste) { v -> Settings.update { it.copy(straightenPaste = v) } }
+        SwitchRow("Ask before pasting several lines", p.askMultilinePaste) { v -> Settings.update { it.copy(askMultilinePaste = v) } }
+        Choice("Servers copying to the clipboard", p.remoteClipboard, com.rm.whelk.data.RemoteClipboard.values().toList(), { it.label }) { v -> Settings.update { it.copy(remoteClipboard = v) } }
         SwitchRow("Extra keys row", p.extraKeys) { v -> Settings.update { it.copy(extraKeys = v) } }
         if (p.extraKeys) TextButton(onClick = { nav.go(Screen.ExtraKeys) }) { Text("Change the extra keys") }
         SwitchRow("Back key sends Esc", p.backIsEscape) { v -> Settings.update { it.copy(backIsEscape = v) } }

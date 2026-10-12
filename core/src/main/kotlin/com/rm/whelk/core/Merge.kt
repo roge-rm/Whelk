@@ -7,8 +7,9 @@ const val TOMBSTONE_DAYS = 180L
  * Merges two copies of the vault item by item: for each id the copy changed last wins, and a tie
  * keeps [this]. Deleted items older than [TOMBSTONE_DAYS] are dropped.
  */
-fun Vault.merge(other: Vault, at: Long = now()): Vault {
+fun Vault.merge(incoming: Vault, at: Long = now()): Vault {
     val cutoff = at - TOMBSTONE_DAYS * 24 * 60 * 60 * 1000
+    val other = incoming.withoutFutureTimes(at, this)
     return Vault(
         connections = mergeItems(connections, other.connections, cutoff),
         identities = mergeItems(identities, other.identities, cutoff),
@@ -17,6 +18,28 @@ fun Vault.merge(other: Vault, at: Long = now()): Vault {
         forwards = mergeItems(forwards, other.forwards, cutoff),
         knownHosts = mergeItems(knownHosts, other.knownHosts, cutoff),
         colourSchemes = mergeItems(colourSchemes, other.colourSchemes, cutoff),
+    )
+}
+
+/**
+ * Deals with changes dated more than a day ahead of [at], so a file with timestamps far in the
+ * future can't win over every later edit, or keep a deletion forever: a change to something
+ * [mine] already has is ignored, and a new item comes in dated [at].
+ */
+private fun Vault.withoutFutureTimes(at: Long, mine: Vault): Vault {
+    val limit = at + 24 * 60 * 60 * 1000
+    fun <T : Item> List<T>.fix(have: List<T>, redate: (T) -> T): List<T> {
+        val ids = have.mapTo(HashSet()) { it.id }
+        return mapNotNull { if (it.updated <= limit) it else if (it.id in ids) null else redate(it) }
+    }
+    return copy(
+        connections = connections.fix(mine.connections) { it.copy(updated = at) },
+        identities = identities.fix(mine.identities) { it.copy(updated = at) },
+        groups = groups.fix(mine.groups) { it.copy(updated = at) },
+        snippets = snippets.fix(mine.snippets) { it.copy(updated = at) },
+        forwards = forwards.fix(mine.forwards) { it.copy(updated = at) },
+        knownHosts = knownHosts.fix(mine.knownHosts) { it.copy(updated = at) },
+        colourSchemes = colourSchemes.fix(mine.colourSchemes) { it.copy(updated = at) },
     )
 }
 

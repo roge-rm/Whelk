@@ -61,7 +61,8 @@ object Store {
             Vault.fromJson(Secure.open(file.readBytes()).toString(Charsets.UTF_8))
         } catch (e: Exception) {
             // Keep the unreadable file aside rather than writing over it.
-            Log.e(TAG, "Can't read the vault", e)
+            // Only the kind of error, as a parse error would quote the decrypted vault.
+            Log.e(TAG, "Can't read the vault: ${e.javaClass.simpleName}")
             file.renameTo(File(file.parentFile, "vault-unreadable-${System.currentTimeMillis()}.bin"))
             Vault()
         }

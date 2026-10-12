@@ -44,6 +44,7 @@ data class SshTarget(
     val hardwareKey: String? = null,
     val keepAlive: Int = 30,
     val compression: Boolean = false,
+    val legacyAlgorithms: Boolean = false,
     /** A jump host to connect through first. */
     val via: SshTarget? = null,
     val proxy: ProxySettings = ProxySettings(),
@@ -67,6 +68,7 @@ data class SshTarget(
                 hardwareKey = identity?.hardwareKey,
                 keepAlive = connection.keepAlive,
                 compression = connection.compression,
+                legacyAlgorithms = connection.legacyAlgorithms,
                 via = via,
                 proxy = connection.proxy,
             )
@@ -139,7 +141,7 @@ class SshConnection(
     private fun open(t: SshTarget, last: SshTarget): SSHClient {
         val parent = t.via?.let { open(it, last) }
         if (closed) throw CancelledException()
-        val c = SSHClient(config(t.compression))
+        val c = SSHClient(config(t.compression, t.legacyAlgorithms))
         synchronized(clients) { clients += c }
         c.connectTimeout = 20_000
         c.addHostKeyVerifier(Verifier(t))
@@ -359,19 +361,37 @@ class SshConnection(
         private val PASSWORD_PROMPT = Regex("(?is).*password.*:\\s*")
 
         // sshj's configurations, made once each as building one is slow.
-        private val plain: DefaultConfig by lazy { DefaultConfig().apply { addRsaCertificates() } }
-        private val compressed: DefaultConfig by lazy {
-            DefaultConfig().apply {
-                addRsaCertificates()
-                compressionFactories = listOf(
-                    DelayedZlibCompression.Factory(),
-                    ZlibCompression.Factory(),
-                    NoneCompression.Factory(),
-                )
+        private val configs = HashMap<Pair<Boolean, Boolean>, DefaultConfig>()
+
+        /** sshj's settings, with the old, weak algorithms only when [legacy] is on. */
+        fun config(compression: Boolean, legacy: Boolean = false): Config = synchronized(configs) {
+            configs.getOrPut(compression to legacy) {
+                DefaultConfig().apply {
+                    addRsaCertificates()
+                    if (!legacy) dropLegacy()
+                    if (compression) {
+                        compressionFactories = listOf(
+                            DelayedZlibCompression.Factory(),
+                            ZlibCompression.Factory(),
+                            NoneCompression.Factory(),
+                        )
+                    }
+                }
             }
         }
 
-        fun config(compression: Boolean): Config = if (compression) compressed else plain
+        /**
+         * Leaves out what OpenSSH no longer offers by default: SHA-1 key exchange, ciphers other
+         * than CTR, GCM and ChaCha20, MD5 and truncated MACs, DSA keys and SHA-1 RSA signatures.
+         */
+        private fun DefaultConfig.dropLegacy() {
+            keyExchangeFactories = keyExchangeFactories.filter { !it.name.contains("sha1") && !it.name.contains("group1-") }
+            cipherFactories = cipherFactories.filter { f -> listOf("-ctr", "-gcm", "chacha20").any { f.name.contains(it) } }
+            macFactories = macFactories.filter { !it.name.contains("md5") && !it.name.contains("-96") && !it.name.contains("ripemd") }
+            keyAlgorithms = keyAlgorithms.filter { it.name !in LEGACY_KEY_ALGORITHMS }
+        }
+
+        val LEGACY_KEY_ALGORITHMS = setOf("ssh-dss", "ssh-dss-cert-v01@openssh.com", "ssh-rsa", "ssh-rsa-cert-v01@openssh.com")
 
         /**
          * sshj only signs RSA certificates with SHA-1, which OpenSSH has refused since 8.8. These

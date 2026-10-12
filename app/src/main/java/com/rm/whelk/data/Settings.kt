@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.coroutines.flow.StateFlow
 
+/** What happens when a program on a server puts text on the clipboard. */
+enum class RemoteClipboard(val label: String) { ASK("Ask"), ALLOW("Allow"), OFF("Don't allow") }
+
 enum class AppTheme(val label: String) { SYSTEM("Same as the phone"), DARK("Dark"), LIGHT("Light") }
 
 enum class VolumeKeys(val label: String) {
@@ -47,6 +50,9 @@ data class Prefs(
     val askBeforeAgent: Boolean = true,
     /** Leave passwords, keys and passphrases out of backups and sync files. */
     val secretsStayHere: Boolean = false,
+    val remoteClipboard: RemoteClipboard = RemoteClipboard.ASK,
+    /** Ask before pasting more than one line into a program that would run each line. */
+    val askMultilinePaste: Boolean = true,
     val appTheme: AppTheme = AppTheme.DARK,
     /** The row of keys above the keyboard, in order. */
     val extraKeyList: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaults,
@@ -83,6 +89,8 @@ object Settings {
             swipe = runCatching { Swipe.valueOf(prefs.getString("swipe", null)!!) }.getOrDefault(d.swipe),
             askBeforeAgent = prefs.getBoolean("askBeforeAgent", d.askBeforeAgent),
             secretsStayHere = prefs.getBoolean("secretsStayHere", d.secretsStayHere),
+            remoteClipboard = runCatching { RemoteClipboard.valueOf(prefs.getString("remoteClipboard", null)!!) }.getOrDefault(d.remoteClipboard),
+            askMultilinePaste = prefs.getBoolean("askMultilinePaste", d.askMultilinePaste),
             appTheme = runCatching { AppTheme.valueOf(prefs.getString("appTheme", null)!!) }.getOrDefault(d.appTheme),
             extraKeyList = prefs.getString("extraKeyList", null)?.let { j ->
                 runCatching { Vault.json.decodeFromString(ListSerializer(ExtraKey.serializer()), j) }.getOrNull()
@@ -113,6 +121,8 @@ object Settings {
             .putString("swipe", p.swipe.name)
             .putBoolean("askBeforeAgent", p.askBeforeAgent)
             .putBoolean("secretsStayHere", p.secretsStayHere)
+            .putString("remoteClipboard", p.remoteClipboard.name)
+            .putBoolean("askMultilinePaste", p.askMultilinePaste)
             .putString("appTheme", p.appTheme.name)
             .putBoolean("notifyBell", p.notifyBell)
             .putBoolean("autoReconnect", p.autoReconnect)

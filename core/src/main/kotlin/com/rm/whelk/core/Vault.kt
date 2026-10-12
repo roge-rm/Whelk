@@ -135,6 +135,8 @@ data class Connection(
     /** Seconds between keepalives, 0 for none. */
     val keepAlive: Int = 30,
     val compression: Boolean = false,
+    /** Allow the old, weak algorithms some old devices still need. */
+    val legacyAlgorithms: Boolean = false,
     /** Let the server use this phone's keys, for git or going on to other servers. */
     val forwardAgent: Boolean = false,
     /** Colour scheme name, or null for the app's own setting. */
@@ -190,6 +192,8 @@ data class Identity(
     val passphrase: String? = null,
     /** An OpenSSH certificate for the key, the line from its -cert.pub file. */
     val certificate: String? = null,
+    /** Offer this key to any server with agent forwarding, not only this identity's own connections. */
+    val offerToAll: Boolean = false,
     /** The alias of a key kept in one phone's secure hardware, in place of [privateKey]. */
     val hardwareKey: String? = null,
     /** The password, key and passphrase were left on the device that wrote this copy. */

@@ -18,6 +18,7 @@ sealed class Ask {
         val title: String,
         val message: String,
         val yes: String,
+        val no: String = "Deny",
     ) : Ask()
 
     data class Text(

@@ -120,17 +120,40 @@ class ForwardToggle : BroadcastReceiver() {
 }
 
 /** Picks the connection or forward when a widget is added. */
-class WidgetSetup : ComponentActivity() {
+class WidgetSetup : androidx.fragment.app.FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         setResult(Activity.RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
-        if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+        val manager = AppWidgetManager.getInstance(this)
+        // Only for one of our own widgets being added, as any app can start this screen.
+        val provider = manager.getAppWidgetInfo(widgetId)?.provider
+        if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID || provider?.packageName != packageName) {
             finish()
             return
         }
+        // With the app lock on, the list waits for the fingerprint or screen lock, and stays out of screenshots.
+        if (com.rm.whelk.data.Settings.value.lockAfter >= 0) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            val prompt = androidx.biometric.BiometricPrompt(this, androidx.core.content.ContextCompat.getMainExecutor(this),
+                object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) = show(widgetId, provider)
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = finish()
+                })
+            prompt.authenticate(
+                androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("Unlock Whelk")
+                    .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                    .build(),
+            )
+        } else {
+            show(widgetId, provider)
+        }
+    }
+
+    private fun show(widgetId: Int, provider: ComponentName) {
         val manager = AppWidgetManager.getInstance(this)
-        val forForward = manager.getAppWidgetInfo(widgetId)?.provider?.className == ForwardWidget::class.java.name
+        val forForward = provider.className == ForwardWidget::class.java.name
         val vault = Store.vault.value
         val items: List<Pair<String, String>> = if (forForward) {
             vault.liveForwards().map { it.id to it.title() }

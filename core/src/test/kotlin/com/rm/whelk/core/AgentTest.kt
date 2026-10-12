@@ -46,7 +46,7 @@ class AgentTest {
             val sig = r.readBytes()
             val name = Buffer.PlainBuffer(sig).readString()
             if (flags != 0) assertEquals("rsa-sha2-512", name)
-            val algorithm = Factory.Named.Util.create(SshConnection.config(false).keyAlgorithms, name)
+            val algorithm = Factory.Named.Util.create(SshConnection.config(false, legacy = true).keyAlgorithms, name)
             assertNotNull(algorithm, name)
             val verifier = algorithm.newSignature()
             verifier.initVerify(key.publicKey)

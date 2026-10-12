@@ -78,10 +78,13 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         debugClip(intent)
-        handle(intent)
+        pendingIntent = intent
     }
 
     /** A connection widget's tap opens a session for it; a session notification's tap shows it. */
+    /** An intent to act on once the lock allows it. */
+    private var pendingIntent by mutableStateOf<android.content.Intent?>(null)
+
     private fun handle(intent: android.content.Intent?) {
         if (intent?.action == ACTION_SHOW_SESSION) {
             val id = intent.getIntExtra(EXTRA_SESSION, -1)
@@ -160,7 +163,7 @@ class MainActivity : FragmentActivity() {
         // The splash is only for opening from the launcher; widgets, shortcuts and notifications go straight in.
         val showSplash = savedInstanceState == null && intent?.action == android.content.Intent.ACTION_MAIN
         debugClip(intent)
-        handle(intent)
+        pendingIntent = intent
         setContent {
             var splash by remember { mutableStateOf(showSplash) }
             WhelkTheme {
@@ -169,6 +172,14 @@ class MainActivity : FragmentActivity() {
                     val keyJob by com.rm.whelk.session.SecurityKey.pending.collectAsState()
                     val unlockRequest by com.rm.whelk.session.HardwareKeys.pending.collectAsState()
                     LaunchedEffect(unlockRequest) { unlockRequest?.let { unlockKey(it) } }
+                    // Connections from widgets, shortcuts and notifications wait until the app is unlocked.
+                    val waiting = pendingIntent
+                    LaunchedEffect(waiting, locked) {
+                        if (waiting != null && !locked) {
+                            pendingIntent = null
+                            handle(waiting)
+                        }
+                    }
                     // Listen for security keys only while something is waiting on one.
                     LaunchedEffect(keyJob) {
                         if (keyJob != null) com.rm.whelk.session.SecurityKey.listen(this@MainActivity)

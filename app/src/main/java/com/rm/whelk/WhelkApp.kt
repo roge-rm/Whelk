@@ -26,8 +26,17 @@ class WhelkApp : Application() {
             }
         }, "WarmUp").apply { priority = Thread.MIN_PRIORITY }.start()
 
+        // Files opened from servers are only needed while they're open; clear any older than a day.
+        Thread({
+            val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+            java.io.File(cacheDir, "sftp").walkBottomUp().forEach { f ->
+                if (f.lastModified() < cutoff && (f.isFile || f.list()?.isEmpty() == true) && f.name != "sftp") f.delete()
+            }
+        }, "SftpCacheClean").apply { priority = Thread.MIN_PRIORITY }.start()
+
         Settings.init(this)
         Store.init(this)
+        com.rm.whelk.data.TeamReview.init(this)
         com.rm.whelk.session.Alerts.init(this)
         com.rm.whelk.session.Sessions.init(this)
         Sync.init(this)

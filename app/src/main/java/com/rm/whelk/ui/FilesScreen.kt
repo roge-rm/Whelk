@@ -83,6 +83,7 @@ private class Remote(private val connectionId: String, private val sessionId: In
             val vault = Store.vault.value
             val c = vault.connection(connectionId) ?: throw IllegalStateException("The connection is gone")
             val target = SshTarget.from(vault, c) ?: throw IllegalStateException("The jump hosts go round in a loop")
+            com.rm.whelk.data.TeamReview.confirm(promptId, c, vault)
             SshConnection(target, SessionPrompter(promptId) {}, Store.hostKeys, null, com.rm.whelk.session.SecurityKey.Signer(promptId), com.rm.whelk.session.HardwareKeys::provider).also {
                 own = it
                 it.connect()
@@ -180,7 +181,7 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
             for (uri in uris) {
                 val (name, size) = nameAndSize(context, uri)
                 context.contentResolver.openInputStream(uri)!!.use { input ->
-                    f.upload(input, Sftp.join(dir, name)) { n -> if (size > 0) progress = n.toFloat() / size }
+                    f.upload(input, Sftp.join(dir, Sftp.safeName(name.substringAfterLast('/')) ?: "upload")) { n -> if (size > 0) progress = n.toFloat() / size }
                 }
             }
         }
@@ -202,7 +203,7 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
         editing?.stop()
         run("Downloading…", refresh = false) { f ->
             val dir = File(context.cacheDir, "sftp/edit/" + System.currentTimeMillis()).apply { mkdirs() }
-            val file = File(dir, e.name)
+            val file = localFile(dir, e.name)
             file.outputStream().use { out -> f.download(e.path, out) }
             withContext(Dispatchers.Main) {
                 val ed = Editing(file, e) { local ->
@@ -226,7 +227,7 @@ fun FilesScreen(nav: Nav, connectionId: String, sessionId: Int?) {
         }
         run("Downloading…", refresh = false) { f ->
             val dir = File(context.cacheDir, "sftp").apply { mkdirs() }
-            val file = File(dir, e.name)
+            val file = localFile(dir, e.name)
             file.outputStream().use { out -> f.download(e.path, out) { n -> if (e.size > 0) progress = n.toFloat() / e.size } }
             withContext(Dispatchers.Main) { view(context, file) }
         }
@@ -372,6 +373,14 @@ private fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, on
         confirmButton = { TextButton(onClick = ::submit) { Text("OK") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** A file for [name] inside [dir], refusing names that would reach outside it. */
+private fun localFile(dir: File, name: String): File {
+    val safe = Sftp.safeName(name) ?: throw java.io.IOException("That file name isn't safe to save")
+    val file = File(dir, safe)
+    if (file.canonicalFile.parentFile != dir.canonicalFile) throw java.io.IOException("That file name isn't safe to save")
+    return file
 }
 
 private fun nameAndSize(context: Context, uri: Uri): Pair<String, Long> {

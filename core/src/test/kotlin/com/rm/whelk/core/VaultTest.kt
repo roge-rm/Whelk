@@ -69,12 +69,31 @@ class VaultTest {
     @Test
     fun sealedRoundTrip() {
         val plain = "hello vault".toByteArray()
-        val box = Sealed.seal(plain, "secret".toCharArray(), iterations = 2000)
+        val box = Sealed.seal(plain, "secret".toCharArray(), memoryKib = 8 * 1024, passes = 1)
         assertTrue(Sealed.isSealed(box))
         assertEquals("hello vault", String(Sealed.open(box, "secret".toCharArray())))
         assertFailsWith<Sealed.WrongPassphrase> { Sealed.open(box, "wrong".toCharArray()) }
         box[box.size - 1] = (box[box.size - 1] + 1).toByte()
         assertFailsWith<Sealed.WrongPassphrase> { Sealed.open(box, "secret".toCharArray()) }
+    }
+
+    @Test
+    fun oldFilesStillOpen() {
+        val box = Sealed.sealV1("old file".toByteArray(), "secret".toCharArray(), 2000)
+        assertEquals("old file", String(Sealed.open(box, "secret".toCharArray())))
+        assertFailsWith<Sealed.WrongPassphrase> { Sealed.open(box, "wrong".toCharArray()) }
+    }
+
+    @Test
+    fun sealedRefusesCostlyHeaders() {
+        val box = Sealed.sealV1("x".toByteArray(), "secret".toCharArray(), 2000)
+        // Ask for 10 million rounds in the header.
+        java.nio.ByteBuffer.wrap(box).putInt(6, 10_000_000)
+        assertFailsWith<java.io.IOException> { Sealed.open(box, "secret".toCharArray()) }
+        val v2 = Sealed.seal("x".toByteArray(), "secret".toCharArray(), memoryKib = 8 * 1024, passes = 1)
+        // Ask for 4 GiB of memory.
+        java.nio.ByteBuffer.wrap(v2).putInt(6, 4 * 1024 * 1024)
+        assertFailsWith<java.io.IOException> { Sealed.open(v2, "secret".toCharArray()) }
     }
 }
 
@@ -132,5 +151,20 @@ class TeamTest {
         // A password removed on purpose elsewhere, from a copy with secrets, stays removed.
         val removed = local.put(id.copy(password = null, updated = id.updated + 2))
         assertNull(local.merge(removed).withSecretsFrom(local).identity(id.id)!!.password)
+    }
+
+    @Test
+    fun futureTimesDontWinForever() {
+        val now = 1_000_000_000_000L
+        val c = Connection(host = "mine", updated = now - 1000)
+        val fresh = Connection(host = "new", updated = Long.MAX_VALUE)
+        val forged = Vault().put(c.copy(host = "theirs", updated = Long.MAX_VALUE)).put(fresh)
+        val merged = Vault().put(c).merge(forged, at = now)
+        // A change dated far ahead to something already here is ignored.
+        assertEquals("mine", merged.connection(c.id)!!.host)
+        // Something new comes in, dated now, so later edits win over it.
+        assertEquals(now, merged.connection(fresh.id)!!.updated)
+        val edited = merged.put(merged.connection(fresh.id)!!.copy(host = "edited", updated = now + 5000))
+        assertEquals("edited", edited.merge(forged, at = now + 6000).connection(fresh.id)!!.host)
     }
 }

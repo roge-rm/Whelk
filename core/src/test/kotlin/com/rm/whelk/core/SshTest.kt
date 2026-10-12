@@ -97,6 +97,37 @@ class SshTest {
         override fun progress(text: String) {}
     }
 
+    @Test
+    fun oldCiphersOnlyWhenAllowed() {
+        // A second server that only speaks AES-CBC, like old equipment.
+        val old = SshServer.setUpDefaultServer()
+        old.host = "127.0.0.1"
+        old.port = 0
+        old.keyPairProvider = SimpleGeneratorHostKeyProvider().apply { algorithm = "EC" }
+        old.passwordAuthenticator = PasswordAuthenticator { user, pw, _ -> user == "dan" && pw == "pw" }
+        old.cipherFactories = listOf(org.apache.sshd.common.cipher.BuiltinCiphers.aes128cbc)
+        old.start()
+        try {
+            val t = SshTarget("127.0.0.1", old.port, "dan", password = "pw")
+            assertFailsWith<Exception> { SshConnection(t, Prompter(), Store()).use { it.connect() } }
+            SshConnection(t.copy(legacyAlgorithms = true), Prompter(), Store()).use { c ->
+                c.connect()
+                assertTrue(c.isConnected)
+            }
+        } finally {
+            old.stop(true)
+        }
+    }
+
+    @Test
+    fun unsafeNames() {
+        assertEquals("a.txt", Sftp.safeName("a.txt"))
+        assertEquals(null, Sftp.safeName("../../shared_prefs/settings.xml"))
+        assertEquals(null, Sftp.safeName(".."))
+        assertEquals(null, Sftp.safeName("a\\b"))
+        assertEquals(null, Sftp.safeName(""))
+    }
+
     private fun target(password: String? = null, privateKey: String? = null, user: String = "dan") =
         SshTarget("127.0.0.1", server.port, user, password = password, privateKey = privateKey)
 

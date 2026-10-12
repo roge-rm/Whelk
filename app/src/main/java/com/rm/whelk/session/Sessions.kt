@@ -13,7 +13,9 @@ import com.rm.whelk.core.ForwardKind
 import com.rm.whelk.core.Paste
 import com.rm.whelk.core.PortForward
 import com.rm.whelk.core.SshConnection
+import com.rm.whelk.data.RemoteClipboard
 import com.rm.whelk.data.Settings
+import kotlin.concurrent.thread
 import com.rm.whelk.data.Store
 import com.rm.whelk.ui.TerminalThemes
 import com.rm.whelk.widget.ForwardWidget
@@ -58,6 +60,8 @@ class Session(
     @Volatile internal var userClosed = false
     /** How many reconnects in a row, for the wait before the next. */
     internal var reconnectTries = 0
+    /** When the last program notification showed as a toast, to space them out. */
+    @Volatile internal var lastToast = 0L
     /** "Reconnecting in 5 s" and the like, while waiting to reconnect. */
     val reconnecting = MutableStateFlow<String?>(null)
 
@@ -265,10 +269,26 @@ object Sessions {
         SessionService.update(appContext)
     }
 
-    /** Cleans text and pastes it, bracketed if the program asked for that. */
+    /**
+     * Cleans text and pastes it, bracketed if the program asked for that. Several lines into a
+     * program that didn't ask for bracketing would each run, so that asks first.
+     */
     fun paste(session: TerminalSession, raw: String) {
         val text = Paste.clean(raw, Settings.value.straightenPaste)
         if (text.isEmpty()) return
+        val lines = text.count { it == '\n' } + 1
+        val s = of(session)
+        if (lines > 1 && s != null && Settings.value.askMultilinePaste && session.emulator?.isBracketedPasteMode == false) {
+            thread(name = "PasteAsk") {
+                val ok = Prompts.ask(Ask.Confirm(s.id, "Paste $lines lines?", "Each line runs as soon as it's pasted.", "Paste", "Cancel")) == "yes"
+                if (ok) main.post { pasteNow(session, text) }
+            }
+            return
+        }
+        pasteNow(session, text)
+    }
+
+    private fun pasteNow(session: TerminalSession, text: String) {
         session.emulator?.paste(text)
         val s = of(session) ?: return
         val together = typingTogether.value
@@ -319,18 +339,36 @@ object Sessions {
             }
         }
 
+        // A program's notifications always start with the session's name, so they can't pass for the system's.
         override fun onNotify(session: TerminalSession, title: String, body: String) {
             val s = of(session) ?: return
+            val heading = if (title.isEmpty()) s.title else "${s.title}: $title"
             if (Alerts.away(s)) {
-                Alerts.post(s, Alerts.KIND_PROGRAM, title.ifEmpty { s.title }, body.ifEmpty { title })
+                Alerts.post(s, Alerts.KIND_PROGRAM, heading, body.ifEmpty { title })
             } else {
-                main.post { android.widget.Toast.makeText(appContext, listOf(title, body).filter { it.isNotEmpty() }.joinToString(": "), android.widget.Toast.LENGTH_LONG).show() }
+                val now = System.currentTimeMillis()
+                if (now - s.lastToast < 10_000) return
+                s.lastToast = now
+                main.post { android.widget.Toast.makeText(appContext, listOf(heading, body).filter { it.isNotEmpty() }.joinToString(": "), android.widget.Toast.LENGTH_LONG).show() }
             }
         }
 
         override fun onCopyTextToClipboard(session: TerminalSession, text: String) {
             val cm = appContext.getSystemService(ClipboardManager::class.java)
             cm.setPrimaryClip(ClipData.newPlainText("Terminal", text))
+        }
+
+        override fun onRemoteCopyToClipboard(session: TerminalSession, text: String) {
+            val s = of(session) ?: return
+            when (Settings.value.remoteClipboard) {
+                RemoteClipboard.OFF -> return
+                RemoteClipboard.ALLOW -> onCopyTextToClipboard(session, text)
+                RemoteClipboard.ASK -> thread(name = "ClipboardAsk") {
+                    val shown = text.take(200).let { if (text.length > 200) "$it…" else it }
+                    val ok = Prompts.ask(Ask.Confirm(s.id, "Copy to the clipboard?", "${s.title} wants to copy this:\n\n$shown", "Copy")) == "yes"
+                    if (ok) main.post { onCopyTextToClipboard(session, text) }
+                }
+            }
         }
 
         override fun onPasteTextFromClipboard(session: TerminalSession) {

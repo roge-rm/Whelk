@@ -1012,12 +1012,12 @@ public final class TerminalEmulator {
                                 mSession.write("\033P1+r" + part + "=" + hexEncoded + "\033\\");
                             }
                         } else {
-                            Logger.logError(mClient, LOG_TAG, "Invalid device termcap/terminfo name of odd length: " + part);
+                            Logger.logError(mClient, LOG_TAG, "Invalid device termcap/terminfo name of odd length");
                         }
                     }
                 } else {
                     if (LOG_ESCAPE_SEQUENCES)
-                        Logger.logError(mClient, LOG_TAG, "Unrecognized device control string: " + dcs);
+                        Logger.logError(mClient, LOG_TAG, "Unrecognized device control string");
                 }
                 finishSequence();
             }
@@ -2114,9 +2114,10 @@ public final class TerminalEmulator {
                 int startIndex = textParameter.indexOf(";") + 1;
                 try {
                     String clipboardText = new String(Base64.decode(textParameter.substring(startIndex), 0), StandardCharsets.UTF_8);
-                    mSession.onCopyTextToClipboard(clipboardText);
+                    mSession.onRemoteCopy(clipboardText);
                 } catch (Exception e) {
-                    Logger.logError(mClient, LOG_TAG, "OSC Manipulate selection, invalid string '" + textParameter + "");
+                    // The text itself stays out of the log; it may be anything a program sent.
+                    Logger.logError(mClient, LOG_TAG, "OSC Manipulate selection, invalid string");
                 }
                 break;
             case 104:
@@ -2583,6 +2584,11 @@ public final class TerminalEmulator {
     }
 
     /** If DECSET 2004 is set, prefix paste with "\033[200~" and suffix with "\033[201~". */
+    /** Whether the program asked for pastes to be bracketed, so it can tell a paste from typing. */
+    public boolean isBracketedPasteMode() {
+        return isDecsetInternalBitSet(DECSET_BIT_BRACKETED_PASTE_MODE);
+    }
+
     public void paste(String text) {
         // First: Always remove escape key and C1 control characters [0x80,0x9F]:
         text = text.replaceAll("(\u001B|[\u0080-\u009F])", "");

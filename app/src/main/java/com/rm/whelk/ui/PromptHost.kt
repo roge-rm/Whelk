@@ -42,7 +42,7 @@ fun PromptHost() {
                 title = { Text(ask.title) },
                 text = { Text(ask.message) },
                 confirmButton = { TextButton(onClick = { Prompts.answer(p, "yes") }) { Text(ask.yes) } },
-                dismissButton = { TextButton(onClick = { Prompts.answer(p, null) }) { Text("Deny") } },
+                dismissButton = { TextButton(onClick = { Prompts.answer(p, null) }) { Text(ask.no) } },
             )
         }
     }

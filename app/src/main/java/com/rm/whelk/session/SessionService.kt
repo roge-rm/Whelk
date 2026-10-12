@@ -88,6 +88,14 @@ class SessionService : Service() {
             .setContentIntent(open)
             .setOngoing(true)
             .setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(this, WhelkApp.CHANNEL_SESSIONS)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setColor(0xFFC6F24E.toInt())
+                    .setContentTitle(if (sessions.size == 1) "1 session open" else "${sessions.size} sessions open")
+                    .build(),
+            )
             .addAction(0, "Disconnect all", disconnect)
             .build()
     }

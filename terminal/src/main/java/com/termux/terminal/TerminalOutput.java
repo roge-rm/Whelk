@@ -30,6 +30,10 @@ public abstract class TerminalOutput {
     public abstract void onColorsChanged();
 
     /** A program asked for a desktop notification (OSC 9 or 777). Whelk addition. */
+    /** A program asked to put text on the clipboard (OSC 52). Separate from the user's own copy. */
+    public void onRemoteCopy(String text) {
+    }
+
     public void onNotify(String title, String body) {
     }
 

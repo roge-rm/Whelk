@@ -64,7 +64,7 @@ class AgentProtocol(private val keys: AgentKeys) {
             }
             else -> KeyType.fromKey(key.publicKey).toString()
         }
-        val algorithm = Factory.Named.Util.create(SshConnection.config(false).keyAlgorithms, name) ?: return failure()
+        val algorithm = Factory.Named.Util.create(SshConnection.config(false, legacy = true).keyAlgorithms, name) ?: return failure()
         val signature = algorithm.newSignature()
         signature.initSign(key.privateKey)
         signature.update(data)

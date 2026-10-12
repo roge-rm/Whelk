@@ -34,8 +34,20 @@ object Alerts {
 
     fun away(s: Session) = !appVisible || shownSession != s.id
 
-    /** Shows a notification for [s]. A tap opens that session. Each [kind] has its own slot per session. */
+    private val lastPosted = HashMap<Int, Long>()
+
+    /**
+     * Shows a notification for [s]. A tap opens that session. Each [kind] has its own slot per
+     * session. The lock screen shows only that there's an alert, and each slot sounds at most once
+     * every [MIN_GAP_MS], so a program can't fill the screen or keep buzzing.
+     */
     fun post(s: Session, kind: Int, title: String, text: String) {
+        val slot = 1000 + s.id * 8 + kind
+        val now = System.currentTimeMillis()
+        val quiet = synchronized(lastPosted) {
+            val last = lastPosted[slot] ?: 0L
+            (now - last < MIN_GAP_MS).also { if (!it) lastPosted[slot] = now }
+        }
         val open = Intent(context, MainActivity::class.java)
             .setAction(MainActivity.ACTION_SHOW_SESSION)
             .putExtra(MainActivity.EXTRA_SESSION, s.id)
@@ -47,9 +59,18 @@ object Alerts {
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setAutoCancel(true)
+            .setSilent(quiet)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(context, WhelkApp.CHANNEL_ALERTS)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setColor(0xFFC6F24E.toInt())
+                    .setContentTitle("Session alert")
+                    .build(),
+            )
             .setContentIntent(PendingIntent.getActivity(context, s.id * 8 + kind, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(1000 + s.id * 8 + kind, n) }
+        runCatching { NotificationManagerCompat.from(context).notify(slot, n) }
     }
 
     /** Clears a session's notifications, when it's opened. */
@@ -57,6 +78,8 @@ object Alerts {
         val nm = NotificationManagerCompat.from(context)
         for (k in 0 until 8) nm.cancel(1000 + s.id * 8 + k)
     }
+
+    private const val MIN_GAP_MS = 10_000L
 
     const val KIND_ACTIVITY = 0
     const val KIND_QUIET = 1

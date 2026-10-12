@@ -22,6 +22,10 @@ public interface TerminalSessionClient {
     void onColorsChanged(TerminalSession session);
 
     /** A program asked for a desktop notification. Whelk addition. */
+    /** A program asked to put text on the clipboard (OSC 52). */
+    default void onRemoteCopyToClipboard(TerminalSession session, String text) {
+    }
+
     default void onNotify(TerminalSession session, String title, String body) {
     }
 
