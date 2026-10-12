@@ -108,6 +108,12 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
         return
     }
     val state by session.state.collectAsState()
+    // Backing out of a live session asks whether to keep it running.
+    var leaving by remember { mutableStateOf(false) }
+    fun leave() {
+        if (state == SessionState.CLOSED) nav.back() else leaving = true
+    }
+    androidx.activity.compose.BackHandler(enabled = state != SessionState.CLOSED) { leaving = true }
     val modifiers = remember { Modifiers() }
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var menu by remember { mutableStateOf(false) }
@@ -202,7 +208,7 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
             Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).height(44.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { nav.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+            IconButton(onClick = ::leave) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
             Row(
                 Modifier.weight(1f).combinedClickableCompat(onClick = { switcher = true }),
                 verticalAlignment = Alignment.CenterVertically,
@@ -429,6 +435,16 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
                 if (com.rm.whelk.core.Placeholders.fields(s.text).isEmpty()) runSnippet(session, s, emptyMap()) else filling = s
             },
             action = "New snippet" to { showSnippets = false; nav.go(Screen.EditSnippet(null)) },
+        )
+    }
+
+    if (leaving) {
+        AlertDialog(
+            onDismissRequest = { leaving = false },
+            title = { Text("Keep the session running?") },
+            confirmButton = { TextButton(onClick = { leaving = false; nav.back() }) { Text("Keep running") } },
+            // Back or a tap outside closes this and stays in the session.
+            dismissButton = { TextButton(onClick = { leaving = false; Sessions.close(session) }) { Text("Disconnect") } },
         )
     }
 
