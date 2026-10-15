@@ -16,8 +16,9 @@ Dan
 
 <table>
   <tr>
-    <td align="center" width="50%"><img src="screenshots/connections.png" width="100%" alt="Connections, with recent ones at the top and groups"></td>
-    <td align="center" width="50%"><img src="screenshots/terminal.png" width="100%" alt="vim in an SSH session, with the extra keys above the keyboard"></td>
+    <td align="center" width="33%"><img src="screenshots/connections.png" width="100%" alt="Connections, with an open session, recent ones and groups"></td>
+    <td align="center" width="33%"><img src="screenshots/terminal.png" width="100%" alt="vim in an SSH session, with two rows of extra keys above the keyboard"></td>
+    <td align="center" width="33%"><img src="screenshots/editor.png" width="100%" alt="Editing a connection that goes through a jump host"></td>
   </tr>
 </table>
 
@@ -61,7 +62,7 @@ You can also download the APK from the [Releases](https://github.com/roge-rm/Whe
 - Full colour, Unicode, mouse support and searchable scrollback
 - Fira Mono, JetBrains Mono, Hack and Caskaydia Cove with powerline and icon symbols, or your own font
 - Colour schemes built in, or imported from iTerm2, Xresources, Termux, Windows Terminal and Alacritty
-- An extra keys row (Esc, Tab, Ctrl, Alt, arrows, F keys) you can rearrange
+- Extra keys above the keyboard (Esc, Tab, Ctrl, Alt, arrows, F keys) in one row or two, which you can rearrange
 - Pinch or volume keys for text size
 - Swipe to switch sessions, or tmux and screen windows
 - Paste without the hidden characters and curly quotes web pages bring along
