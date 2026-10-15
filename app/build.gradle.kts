@@ -28,8 +28,8 @@ android {
         applicationId = "com.rm.whelk"
         minSdk = 27
         targetSdk = 37
-        versionCode = 601
-        versionName = "0.6.1"
+        versionCode = 602
+        versionName = "0.6.2"
     }
 
     signingConfigs {
