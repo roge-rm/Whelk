@@ -413,8 +413,18 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
         }
 
         if (prefs.extraKeys && !searching) {
-            val keys = remember(prefs.extraKeyList) { prefs.extraKeyList.mapNotNull { ExtraKeys.toKey(it) } }
-            ExtraKeyRow(keys, modifiers, onKey = { key -> view?.let { sendKey(it, key, modifiers) } })
+            val onKey = { key: Key -> view?.let { sendKey(it, key, modifiers) }; Unit }
+            if (prefs.twoRowKeys) {
+                val top = remember(prefs.extraKeyTop) { prefs.extraKeyTop.mapNotNull { ExtraKeys.toKey(it) } }
+                val bottom = remember(prefs.extraKeyBottom) { prefs.extraKeyBottom.mapNotNull { ExtraKeys.toKey(it) } }
+                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 2.dp)) {
+                    ExtraKeyRow(top, modifiers, onKey, fill = true)
+                    ExtraKeyRow(bottom, modifiers, onKey, fill = true)
+                }
+            } else {
+                val keys = remember(prefs.extraKeyList) { prefs.extraKeyList.mapNotNull { ExtraKeys.toKey(it) } }
+                ExtraKeyRow(keys, modifiers, onKey)
+            }
         }
     }
 
@@ -615,13 +625,15 @@ private fun ForwardsDialog(session: Session, onDismiss: () -> Unit, onAdd: () ->
 }
 
 @Composable
-private fun ExtraKeyRow(keys: List<Key>, modifiers: Modifiers, onKey: (Key) -> Unit) {
+private fun ExtraKeyRow(keys: List<Key>, modifiers: Modifiers, onKey: (Key) -> Unit, fill: Boolean = false) {
     // Keys drawn as small square caps; a held Ctrl or Alt lights up lime, and a locked one is underlined.
+    // With fill, the keys share the width equally and don't scroll, so two rows line up in columns.
     val shape = MaterialTheme.shapes.extraSmall
     val mono = monoFamily()
     Row(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).horizontalScroll(rememberScrollState())
-            .height(44.dp).padding(horizontal = 4.dp),
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)
+            .then(if (fill) Modifier else Modifier.horizontalScroll(rememberScrollState()))
+            .height(if (fill) 40.dp else 44.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -630,8 +642,8 @@ private fun ExtraKeyRow(keys: List<Key>, modifiers: Modifiers, onKey: (Key) -> U
             val locked = (k is Key.Ctrl && modifiers.ctrlLock) || (k is Key.Alt && modifiers.altLock)
             Box(
                 Modifier
+                    .then(if (fill) Modifier.weight(1f) else Modifier.widthIn(min = 40.dp))
                     .height(34.dp)
-                    .widthIn(min = 40.dp)
                     .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh, shape)
                     .border(1.dp, if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, shape)
                     .combinedClickableCompat(
@@ -648,13 +660,16 @@ private fun ExtraKeyRow(keys: List<Key>, modifiers: Modifiers, onKey: (Key) -> U
                             else -> null
                         },
                     )
-                    .padding(horizontal = 9.dp),
+                    .padding(horizontal = if (fill) 2.dp else 9.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     k.label,
+                    maxLines = 1,
                     fontFamily = mono,
                     fontSize = 14.sp,
+                    // Narrow keys in two rows shrink their label to fit.
+                    autoSize = if (fill) androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp) else null,
                     color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                     textDecoration = if (locked) androidx.compose.ui.text.style.TextDecoration.Underline else null,
                 )

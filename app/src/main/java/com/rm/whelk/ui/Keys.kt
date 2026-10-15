@@ -35,6 +35,13 @@ object ExtraKeys {
             listOf("|", "/", "-", "~", "_").map { ExtraKey(it, text = it) } +
             (listOf("home", "end", "pgup", "pgdn", "ins", "del") + (1..12).map { "f$it" }).map { ExtraKey(builtIn[it]!!.label, id = it) }
 
+    // The two row layout: the up arrow sits over the down arrow, like on a keyboard.
+    val defaultTop: List<ExtraKey> = keys("esc", "~", "|", "/", "home", "up", "end", "pgup")
+    val defaultBottom: List<ExtraKey> = keys("tab", "ctrl", "alt", "-", "left", "down", "right", "pgdn")
+
+    /** Built in keys by id, anything else as text. */
+    private fun keys(vararg names: String) = names.map { n -> builtIn[n]?.let { ExtraKey(it.label, id = n) } ?: ExtraKey(n, text = n) }
+
     fun toKey(k: ExtraKey): Key? {
         k.id?.let { return builtIn[it] }
         val text = k.text ?: return null

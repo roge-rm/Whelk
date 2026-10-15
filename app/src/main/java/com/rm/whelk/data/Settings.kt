@@ -56,6 +56,10 @@ data class Prefs(
     val appTheme: AppTheme = AppTheme.DARK,
     /** The row of keys above the keyboard, in order. */
     val extraKeyList: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaults,
+    /** Two fixed rows of keys instead of one scrolling row, with the arrows laid out like a keyboard. */
+    val twoRowKeys: Boolean = false,
+    val extraKeyTop: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultTop,
+    val extraKeyBottom: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultBottom,
     val notifyBell: Boolean = true,
     val autoReconnect: Boolean = true,
     /** Keep the CPU and Wi-Fi awake while sessions are open. */
@@ -92,14 +96,19 @@ object Settings {
             remoteClipboard = runCatching { RemoteClipboard.valueOf(prefs.getString("remoteClipboard", null)!!) }.getOrDefault(d.remoteClipboard),
             askMultilinePaste = prefs.getBoolean("askMultilinePaste", d.askMultilinePaste),
             appTheme = runCatching { AppTheme.valueOf(prefs.getString("appTheme", null)!!) }.getOrDefault(d.appTheme),
-            extraKeyList = prefs.getString("extraKeyList", null)?.let { j ->
-                runCatching { Vault.json.decodeFromString(ListSerializer(ExtraKey.serializer()), j) }.getOrNull()
-            } ?: d.extraKeyList,
+            extraKeyList = keyList("extraKeyList") ?: d.extraKeyList,
+            twoRowKeys = prefs.getBoolean("twoRowKeys", d.twoRowKeys),
+            extraKeyTop = keyList("extraKeyTop") ?: d.extraKeyTop,
+            extraKeyBottom = keyList("extraKeyBottom") ?: d.extraKeyBottom,
             notifyBell = prefs.getBoolean("notifyBell", d.notifyBell),
             autoReconnect = prefs.getBoolean("autoReconnect", d.autoReconnect),
             keepAwake = prefs.getBoolean("keepAwake", d.keepAwake),
             logFolder = prefs.getString("logFolder", null),
         )
+    }
+
+    private fun keyList(name: String): List<ExtraKey>? = prefs.getString(name, null)?.let { j ->
+        runCatching { Vault.json.decodeFromString(ListSerializer(ExtraKey.serializer()), j) }.getOrNull()
     }
 
     fun update(change: (Prefs) -> Prefs) {
@@ -129,6 +138,9 @@ object Settings {
             .putBoolean("keepAwake", p.keepAwake)
             .putString("logFolder", p.logFolder)
             .putString("extraKeyList", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyList))
+            .putBoolean("twoRowKeys", p.twoRowKeys)
+            .putString("extraKeyTop", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyTop))
+            .putString("extraKeyBottom", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyBottom))
             .apply()
     }
 }
