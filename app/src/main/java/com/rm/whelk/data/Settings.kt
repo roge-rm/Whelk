@@ -57,7 +57,7 @@ data class Prefs(
     /** The row of keys above the keyboard, in order. */
     val extraKeyList: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaults,
     /** Two fixed rows of keys instead of one scrolling row, with the arrows laid out like a keyboard. */
-    val twoRowKeys: Boolean = false,
+    val twoRowKeys: Boolean = true,
     val extraKeyTop: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultTop,
     val extraKeyBottom: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultBottom,
     val notifyBell: Boolean = true,
