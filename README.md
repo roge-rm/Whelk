@@ -24,13 +24,7 @@ Dan
 
 ## Installing
 
-The easiest way to install Whelk and keep it up to date is through my F-Droid repo:
-
-[https://hunke.ws/fdroid/repo](https://hunke.ws/fdroid/repo?fingerprint=80438B253C257BCCE05CDCB9E3AC9B6174C2250659962B14FCBE7F32FD42D53E)
-
-Then search for Whelk in F-Droid. When a new version comes out, F-Droid will offer it as an update.
-
-You can also download the APK from the [Releases](https://github.com/roge-rm/Whelk/releases).
+Add [my F-Droid repo](https://hunke.ws/fdroid/repo?fingerprint=80438B253C257BCCE05CDCB9E3AC9B6174C2250659962B14FCBE7F32FD42D53E), then search for Whelk. F-Droid offers new versions as updates. You can also get an APK from [Releases](https://github.com/roge-rm/Whelk/releases).
 
 ## What's in it
 
