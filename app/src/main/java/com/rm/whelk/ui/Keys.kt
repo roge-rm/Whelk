@@ -38,6 +38,8 @@ object ExtraKeys {
     // The two row layout: the up arrow sits over the down arrow, like on a keyboard.
     val defaultTop: List<ExtraKey> = keys("esc", "~", "|", "/", "home", "up", "end", "pgup")
     val defaultBottom: List<ExtraKey> = keys("tab", "ctrl", "alt", "-", "left", "down", "right", "pgdn")
+    val defaultTop2: List<ExtraKey> = keys("f1", "f2", "f3", "f4", "f5", "f6", "ins", "del")
+    val defaultBottom2: List<ExtraKey> = keys("f7", "f8", "f9", "f10", "f11", "f12", "_", "\\")
 
     /** Built in keys by id, anything else as text. */
     private fun keys(vararg names: String) = names.map { n -> builtIn[n]?.let { ExtraKey(it.label, id = n) } ?: ExtraKey(n, text = n) }

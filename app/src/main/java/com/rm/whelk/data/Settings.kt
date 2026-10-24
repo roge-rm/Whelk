@@ -60,6 +60,9 @@ data class Prefs(
     val twoRowKeys: Boolean = true,
     val extraKeyTop: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultTop,
     val extraKeyBottom: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultBottom,
+    /** A second page of two rows, swiped to from the first. Empty rows on both mean no second page. */
+    val extraKeyTop2: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultTop2,
+    val extraKeyBottom2: List<ExtraKey> = com.rm.whelk.ui.ExtraKeys.defaultBottom2,
     val notifyBell: Boolean = true,
     val autoReconnect: Boolean = true,
     /** Keep the CPU and Wi-Fi awake while sessions are open. */
@@ -100,6 +103,8 @@ object Settings {
             twoRowKeys = prefs.getBoolean("twoRowKeys", d.twoRowKeys),
             extraKeyTop = keyList("extraKeyTop") ?: d.extraKeyTop,
             extraKeyBottom = keyList("extraKeyBottom") ?: d.extraKeyBottom,
+            extraKeyTop2 = keyList("extraKeyTop2") ?: d.extraKeyTop2,
+            extraKeyBottom2 = keyList("extraKeyBottom2") ?: d.extraKeyBottom2,
             notifyBell = prefs.getBoolean("notifyBell", d.notifyBell),
             autoReconnect = prefs.getBoolean("autoReconnect", d.autoReconnect),
             keepAwake = prefs.getBoolean("keepAwake", d.keepAwake),
@@ -141,6 +146,8 @@ object Settings {
             .putBoolean("twoRowKeys", p.twoRowKeys)
             .putString("extraKeyTop", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyTop))
             .putString("extraKeyBottom", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyBottom))
+            .putString("extraKeyTop2", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyTop2))
+            .putString("extraKeyBottom2", Vault.json.encodeToString(ListSerializer(ExtraKey.serializer()), p.extraKeyBottom2))
             .apply()
     }
 }

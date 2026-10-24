@@ -415,12 +415,12 @@ fun TerminalScreen(nav: Nav, sessionId: Int) {
         if (prefs.extraKeys && !searching) {
             val onKey = { key: Key -> view?.let { sendKey(it, key, modifiers) }; Unit }
             if (prefs.twoRowKeys) {
-                val top = remember(prefs.extraKeyTop) { prefs.extraKeyTop.mapNotNull { ExtraKeys.toKey(it) } }
-                val bottom = remember(prefs.extraKeyBottom) { prefs.extraKeyBottom.mapNotNull { ExtraKeys.toKey(it) } }
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 2.dp)) {
-                    ExtraKeyRow(top, modifiers, onKey, fill = true)
-                    ExtraKeyRow(bottom, modifiers, onKey, fill = true)
+                val pages = remember(prefs.extraKeyTop, prefs.extraKeyBottom, prefs.extraKeyTop2, prefs.extraKeyBottom2) {
+                    listOf(prefs.extraKeyTop to prefs.extraKeyBottom, prefs.extraKeyTop2 to prefs.extraKeyBottom2)
+                        .filter { (t, b) -> t.isNotEmpty() || b.isNotEmpty() }
+                        .map { (t, b) -> t.mapNotNull { ExtraKeys.toKey(it) } to b.mapNotNull { ExtraKeys.toKey(it) } }
                 }
+                ExtraKeyPages(pages, modifiers, onKey)
             } else {
                 val keys = remember(prefs.extraKeyList) { prefs.extraKeyList.mapNotNull { ExtraKeys.toKey(it) } }
                 ExtraKeyRow(keys, modifiers, onKey)
@@ -622,6 +622,21 @@ private fun ForwardsDialog(session: Session, onDismiss: () -> Unit, onAdd: () ->
         confirmButton = { TextButton(onClick = onAdd) { Text("New port forward") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
+}
+
+@Composable
+private fun ExtraKeyPages(pages: List<Pair<List<Key>, List<Key>>>, modifiers: Modifiers, onKey: (Key) -> Unit) {
+    // Pages of two rows, swiped sideways.
+    val pager = androidx.compose.foundation.pager.rememberPagerState { pages.size }
+    Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 2.dp)) {
+        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxWidth(), beyondViewportPageCount = 1) { i ->
+            val (top, bottom) = pages[i]
+            Column(Modifier.fillMaxWidth()) {
+                ExtraKeyRow(top, modifiers, onKey, fill = true)
+                ExtraKeyRow(bottom, modifiers, onKey, fill = true)
+            }
+        }
+    }
 }
 
 @Composable

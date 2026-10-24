@@ -29,31 +29,35 @@ import androidx.compose.ui.unit.dp
 import com.rm.whelk.core.ExtraKey
 import com.rm.whelk.data.Settings
 
-/** The keys above the keyboard: reorder, remove, add built in keys or your own text. Two rows are edited apart. */
+/** The keys above the keyboard: reorder, remove, add built in keys or your own text. Two rows, and the second page's two, are edited apart. */
 @Composable
 fun ExtraKeysScreen(nav: Nav) {
     val prefs by Settings.flow.collectAsState()
-    // The row being added to: 0 the single row or the top one, 1 the bottom one.
+    // The row being added to: 0 the single row or the top one, 1 the bottom one, 2 and 3 the second page's.
     var adding by remember { mutableStateOf<Int?>(null) }
     var custom by remember { mutableStateOf<Int?>(null) }
 
     fun keys(row: Int) = when {
         !prefs.twoRowKeys -> prefs.extraKeyList
         row == 0 -> prefs.extraKeyTop
-        else -> prefs.extraKeyBottom
+        row == 1 -> prefs.extraKeyBottom
+        row == 2 -> prefs.extraKeyTop2
+        else -> prefs.extraKeyBottom2
     }
     fun set(row: Int, list: List<ExtraKey>) = Settings.update {
         when {
             !it.twoRowKeys -> it.copy(extraKeyList = list)
             row == 0 -> it.copy(extraKeyTop = list)
-            else -> it.copy(extraKeyBottom = list)
+            row == 1 -> it.copy(extraKeyBottom = list)
+            row == 2 -> it.copy(extraKeyTop2 = list)
+            else -> it.copy(extraKeyBottom2 = list)
         }
     }
 
     FormScreen(title = "Extra keys", onBack = { nav.back() }, onSave = null) {
-        val rows = if (prefs.twoRowKeys) listOf(0, 1) else listOf(0)
+        val rows = if (prefs.twoRowKeys) listOf(0, 1, 2, 3) else listOf(0)
         for (row in rows) {
-            if (prefs.twoRowKeys) Section(if (row == 0) "Top row" else "Bottom row")
+            if (prefs.twoRowKeys) Section(listOf("Top row", "Bottom row", "Second page, top row", "Second page, bottom row")[row])
             val list = keys(row)
             for ((i, k) in list.withIndex()) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -82,7 +86,10 @@ fun ExtraKeysScreen(nav: Nav) {
         }
         TextButton(onClick = {
             Settings.update {
-                if (it.twoRowKeys) it.copy(extraKeyTop = ExtraKeys.defaultTop, extraKeyBottom = ExtraKeys.defaultBottom)
+                if (it.twoRowKeys) it.copy(
+                    extraKeyTop = ExtraKeys.defaultTop, extraKeyBottom = ExtraKeys.defaultBottom,
+                    extraKeyTop2 = ExtraKeys.defaultTop2, extraKeyBottom2 = ExtraKeys.defaultBottom2,
+                )
                 else it.copy(extraKeyList = ExtraKeys.defaults)
             }
         }) { Text("Reset") }
